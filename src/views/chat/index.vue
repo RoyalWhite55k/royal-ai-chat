@@ -120,6 +120,7 @@
 </template>
 
 <script setup lang="ts">
+import { ollamaChatOnce } from '@/services/ollama'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ollamaChatStream, ollamaTags, type ChatMessage } from '@/services/ollama'
@@ -191,7 +192,6 @@ async function send() {
   streaming.value = true
   controller = new AbortController()
 
-  // 构造 payload（直接用会话 messages）
   const payload: ChatMessage[] = chat.activeSession!.messages.map(m => ({ role: m.role, content: m.content }))
 
   try {
@@ -200,10 +200,11 @@ async function send() {
       messages: payload,
       signal: controller.signal,
       onToken(t) {
-        // 关键：改 store 里的那条消息（proxy），确保实时更新
         chat.activeSession!.messages[assistantIndex].content += t
       },
     })
+    await autoRenameIfNeeded(sid)
+
   } catch (e: any) {
     if (e?.name === 'AbortError') {
       chat.activeSession!.messages[assistantIndex].content += '\n\n[已停止]'
@@ -238,6 +239,58 @@ function onSessionCommand(cmd: string, id: string) {
       .catch(() => {})
   }
 }
+
+function isDefaultTitle(t: string) {
+  return t === '新会话' || t === '未命名会话' || !t?.trim()
+}
+
+function cleanTitle(raw: string) {
+  let s = raw.trim()
+  s = s.replace(/^["“”'《》]+|["“”'《》]+$/g, '') // 去首尾引号/书名号
+  s = s.replace(/\s+/g, ' ')
+  s = s.replace(/[。！？!?,，.]+$/g, '') // 去末尾标点
+  if (s.length > 20) s = s.slice(0, 20)
+  return s
+}
+
+async function autoRenameIfNeeded(sessionId: string) {
+  const s = chat.sessions.find(x => x.id === sessionId)
+  if (!s) return
+  if (!isDefaultTitle(s.title)) return
+
+  // 只在“第一次对话完成后”命名：至少 1 条 user + 1 条 assistant（不含 system）
+  const msgs = s.messages.filter(m => m.role !== 'system')
+  const hasUser = msgs.some(m => m.role === 'user' && m.content.trim())
+  const hasAssistant = msgs.some(m => m.role === 'assistant' && m.content.trim())
+  if (!hasUser || !hasAssistant) return
+
+  // 取前两轮内容做摘要命名（避免太长）
+  const firstUser = msgs.find(m => m.role === 'user')?.content ?? ''
+  const firstAssistant = msgs.find(m => m.role === 'assistant')?.content ?? ''
+
+  try {
+    const title = await ollamaChatOnce({
+      model: s.model,
+      messages: [
+        {
+          role: 'system',
+          content:
+            '你是一个标题生成器。根据对话内容生成一个简短会话标题。要求：只输出标题，不要解释；不要加引号；10-20个中文字符以内。',
+        },
+        {
+          role: 'user',
+          content: `用户：${firstUser}\n助手：${firstAssistant}\n\n请生成标题：`,
+        },
+      ],
+    })
+
+    const finalTitle = cleanTitle(title)
+    if (finalTitle) chat.setTitle(sessionId, finalTitle)
+  } catch {
+    // 命名失败不影响聊天
+  }
+}
+
 
 function doRename() {
   chat.renameSession(renameId, renameText.value)

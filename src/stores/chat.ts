@@ -135,6 +135,13 @@ export const useChatStore = defineStore('chat', () => {
     s.updatedAt = now()
   }
 
+  function setTitle(id: string, title: string) {
+    const s = sessions.value.find(x => x.id === id)
+    if (!s) return
+    s.title = title.trim() || s.title
+    s.updatedAt = now()
+  }
+
   return {
     sessions,
     activeId,
@@ -148,5 +155,6 @@ export const useChatStore = defineStore('chat', () => {
     updateSystemPrompt,
     pushMessage,
     clearMessages,
+    setTitle,
   }
 })
