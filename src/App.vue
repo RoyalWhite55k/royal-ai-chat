@@ -24,6 +24,8 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
+import { usePromptStore } from '@/stores/prompts'
+const promptStore = usePromptStore()
 const chatStore = useChatStore()
 const titleMap: Record<string, string> = {
   '/chat': '聊天',
@@ -31,5 +33,8 @@ const titleMap: Record<string, string> = {
   '/models': '模型管理',
   '/settings': '设置',
 }
-onMounted(() => chatStore.load())
+onMounted(() => {
+  chatStore.load()
+  promptStore.load()
+})
 </script>
