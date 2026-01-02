@@ -98,6 +98,11 @@
         </el-form-item>
       </el-form>
 
+      <div v-if="active" style="display:flex; gap:8px; margin-top: 10px;">
+        <el-button @click="exportMD" style="flex:1;">导出 MD</el-button>
+        <el-button @click="exportJSON" style="flex:1;">导出 JSON</el-button>
+      </div>
+
       <el-divider />
 
       <!-- <el-alert
@@ -120,6 +125,7 @@
 </template>
 
 <script setup lang="ts">
+import { exportSessionJSON, exportSessionMarkdown } from '@/utils/export'
 import { ollamaChatOnce } from '@/services/ollama'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -295,5 +301,15 @@ async function autoRenameIfNeeded(sessionId: string) {
 function doRename() {
   chat.renameSession(renameId, renameText.value)
   renameOpen.value = false
+}
+
+function exportMD() {
+  if (!active.value) return
+  exportSessionMarkdown(active.value)
+}
+
+function exportJSON() {
+  if (!active.value) return
+  exportSessionJSON(active.value)
 }
 </script>

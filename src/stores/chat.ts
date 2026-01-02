@@ -142,6 +142,11 @@ export const useChatStore = defineStore('chat', () => {
     s.updatedAt = now()
   }
 
+  function getSession(id: string) {
+    return sessions.value.find(s => s.id === id) || null
+  }
+
+
   return {
     sessions,
     activeId,
@@ -156,5 +161,6 @@ export const useChatStore = defineStore('chat', () => {
     pushMessage,
     clearMessages,
     setTitle,
+    getSession,
   }
 })
