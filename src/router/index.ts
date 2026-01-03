@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 const Chat = () => import('@/views/chat/index.vue')
-const Models = () => import('@/views/models/index.vue')
 const Settings = () => import('@/views/settings/index.vue')
 
 const router = createRouter({
@@ -9,7 +8,6 @@ const router = createRouter({
   routes: [
     { path: '/', redirect: '/chat' },
     { path: '/chat', component: Chat },
-    { path: '/models', component: Models },
     { path: '/settings', component: Settings },
   ],
 })

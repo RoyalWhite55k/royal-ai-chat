@@ -5,9 +5,7 @@
         <div class="title">会话历史</div>
         <el-button type="primary" size="small" round @click="chat.newSession()">+ 新建</el-button>
       </div>
-
       <el-divider class="sidebar-divider" />
-
       <div class="session-list">
         <div
           v-for="s in chat.sessions"
@@ -28,7 +26,9 @@
               </template>
             </el-dropdown>
           </div>
-          <div class="session-meta">{{ s.model }}</div>
+          <div class="session-meta">
+            {{ chat.settings.modelProvider === 'cloud' ? 'Cloud' : s.model }}
+          </div>
         </div>
       </div>
     </el-card>
@@ -96,27 +96,38 @@
         <div class="title">会话配置</div>
       </div>
 
-      <el-form label-position="top" v-if="active" class="settings-form">
-        <el-form-item label="使用的模型">
-          <el-select v-model="active.model" class="w-100" filterable @change="onModelChange">
-            <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
-          </el-select>
-        </el-form-item>
+      <div class="settings-scroll-area">
+        <el-form label-position="top" v-if="active" class="settings-form">
+          
+          <el-form-item label="使用的模型">
+            <template v-if="chat.settings.modelProvider === 'local'">
+              <el-select v-model="active.model" class="w-100" filterable @change="onModelChange">
+                <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
+              </el-select>
+            </template>
+            <template v-else>
+              <el-input :model-value="chat.settings.cloudModelName" disabled>
+                <template #prefix>☁️</template>
+              </el-input>
+              <div style="font-size:12px;color:#999;margin-top:4px;">当前使用云端模式，请在设置页修改配置</div>
+            </template>
+          </el-form-item>
 
-        <el-form-item label="系统提示词 (System Prompt)">
-          <el-input
-            v-model="active.systemPrompt"
-            type="textarea"
-            :autosize="{ minRows: 4, maxRows: 10 }"
-            placeholder="例如：你是一个资深的程序员助手..."
-            @input="onSystemPromptInput"
-          />
-        </el-form-item>
-      </el-form>
+          <el-form-item label="系统提示词 (System Prompt)">
+            <el-input
+              v-model="active.systemPrompt"
+              type="textarea"
+              :autosize="{ minRows: 4, maxRows: 15 }" 
+              placeholder="例如：你是一个资深的程序员助手..."
+              @input="onSystemPromptInput"
+            />
+          </el-form-item>
+        </el-form>
 
-      <div v-if="active" class="export-actions">
-        <el-button size="small" @click="exportMD">导出 MD</el-button>
-        <el-button size="small" @click="exportJSON">导出 JSON</el-button>
+        <div v-if="active" class="export-actions">
+          <el-button size="small" @click="exportMD">导出 MD</el-button>
+          <el-button size="small" @click="exportJSON">导出 JSON</el-button>
+        </div>
       </div>
     </el-card>
   </div>
@@ -134,11 +145,12 @@
 import { Delete } from '@element-plus/icons-vue'
 import { exportSessionJSON, exportSessionMarkdown } from '@/utils/export'
 import { ollamaChatOnce } from '@/services/ollama'
+// 引入云端服务
+import { openaiChatStream } from '@/services/openai'
 import { computed, onMounted, ref, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ollamaChatStream, ollamaTags, type ChatMessage } from '@/services/ollama'
 import { useChatStore } from '@/stores/chat'
-// 引入新创建的 Markdown 组件
 import MarkdownText from '@/components/MarkdownText.vue'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 
@@ -153,6 +165,8 @@ const active = computed(() => chat.activeSession)
 const activeMessages = computed(() => active.value?.messages ?? [])
 
 async function loadModels() {
+  // 只有本地模式才需要加载本地模型列表
+  if (chat.settings.modelProvider !== 'local') return
   try {
     const data = await ollamaTags()
     const names = (data.models ?? []).map(x => x.name)
@@ -160,6 +174,11 @@ async function loadModels() {
   } catch {}
 }
 onMounted(loadModels)
+
+// 监听模式切换，如果是本地模式，重新获取模型列表
+watch(() => chat.settings.modelProvider, (val) => {
+  if (val === 'local') loadModels()
+})
 
 function onModelChange(val: string) {
   if (!active.value) return
@@ -178,6 +197,11 @@ function clearChat() {
   })
 }
 
+// ----------------------------------------------------
+// 核心逻辑修改：send 函数支持云端/本地切换
+// ----------------------------------------------------
+// src/views/chat/index.vue
+
 async function send() {
   const text = input.value.trim()
   if (!text || streaming.value) return
@@ -186,28 +210,58 @@ async function send() {
   const sid = active.value.id
   input.value = ''
 
+  // 1. UI 层：先在界面上把用户的话和 AI 的空气泡加上
   chat.pushMessage(sid, { role: 'user', content: text })
-  chat.pushMessage(sid, { role: 'assistant', content: '' })
+  chat.pushMessage(sid, { role: 'assistant', content: '' }) // 占位
   const assistantIndex = chat.activeSession!.messages.length - 1
 
   streaming.value = true
   controller = new AbortController()
 
-  // 构造发送给后端的消息列表
-  const payload: ChatMessage[] = chat.activeSession!.messages.map(m => ({ role: m.role, content: m.content }))
+  // 2. 数据层：准备发给 API 的数据
+  // ⚠️ 关键修正：这里我们要把刚才加的最后一条空 assistant 消息去掉！
+  // 否则 Google/OpenAI 会报错
+  const allMessages = chat.activeSession!.messages
+  const payload = allMessages.slice(0, -1).map(m => ({ 
+    role: m.role, 
+    content: m.content 
+  }))
 
   try {
-    await ollamaChatStream({
-      model: chat.activeSession!.model,
-      messages: payload,
-      signal: controller.signal,
-      onToken(t) {
-        // 更新 Pinia 中的状态，响应式更新 UI
-        chat.activeSession!.messages[assistantIndex].content += t
-      },
-    })
-    await autoRenameIfNeeded(sid)
+    const settings = chat.settings
+
+    if (settings.modelProvider === 'cloud') {
+      // === 云端模式 ===
+      if (!settings.cloudApiKey) throw new Error('请先在设置页配置 API Key')
+      
+      await openaiChatStream({
+        baseUrl: settings.cloudBaseUrl,
+        apiKey: settings.cloudApiKey,
+        model: settings.cloudModelName,
+        messages: payload, // ✅ 发送不带空尾巴的消息列表
+        temperature: settings.defaultTemperature,
+        signal: controller.signal,
+        onToken(t) {
+          chat.activeSession!.messages[assistantIndex].content += t
+        }
+      })
+
+    } else {
+      // === 本地模式 ===
+      // Ollama 比较宽容，其实带不带空尾巴它都能跑，但为了统一，我们也用 payload
+      await ollamaChatStream({
+        model: chat.activeSession!.model,
+        messages: payload, 
+        signal: controller.signal,
+        onToken(t) {
+          chat.activeSession!.messages[assistantIndex].content += t
+        }
+      })
+      await autoRenameIfNeeded(sid)
+    }
+
   } catch (e: any) {
+    // 错误处理...
     if (e?.name === 'AbortError') {
       chat.activeSession!.messages[assistantIndex].content += '\n\n[已停止生成]'
     } else {
@@ -250,7 +304,6 @@ async function autoRenameIfNeeded(sessionId: string) {
   if (!s || !isDefaultTitle(s.title)) return
   
   const msgs = s.messages.filter(m => m.role !== 'system')
-  // 只有当至少有一轮对话时才重命名
   if (msgs.length < 2) return 
 
   const firstUser = msgs.find(m => m.role === 'user')?.content ?? ''
@@ -279,29 +332,24 @@ function exportJSON() { if (active.value) exportSessionJSON(active.value) }
 
 const scrollerRef = ref<any>(null)
 
-// 滚动到底部逻辑优化
 function scrollToBottom() {
   nextTick(() => {
     const scroller = scrollerRef.value
     if (scroller) {
-      scroller.scrollToBottom() // vue-virtual-scroller 自带的方法，比手动操作 DOM 更稳
+      scroller.scrollToBottom()
     }
   })
 }
 
-// 监听消息数量变化，滚动到底部
 watch(() => activeMessages.value.length, () => scrollToBottom())
-
-// 监听正在生成时的最后一条消息变化（可选：如果不想每次 token 都滚，可以节流，但这里先保留）
 watch(() => activeMessages.value.at(-1)?.content, () => { 
   if (streaming.value) scrollToBottom() 
 })
-
 watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
 </script>
 
 <style scoped lang="scss">
-/* 布局容器 */
+/* --- 布局容器 --- */
 .chat-layout {
   display: flex;
   gap: 12px;
@@ -311,7 +359,7 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
   padding: 12px;
 }
 
-/* 卡片通用样式 */
+/* --- 卡片通用样式 --- */
 .sidebar-card, .main-card {
   border-radius: 12px;
   border: none;
@@ -322,18 +370,17 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
 
 .sidebar-card {
   width: 280px;
-  
   :deep(.el-card__body) {
     padding: 12px;
     height: 100%;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 }
 
 .main-card {
   flex: 1;
-  
   :deep(.el-card__body) {
     padding: 0;
     height: 100%;
@@ -347,7 +394,7 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
   width: 300px;
 }
 
-/* 侧边栏元素 */
+/* --- 左侧会话列表 --- */
 .sidebar-header {
   display: flex;
   justify-content: space-between;
@@ -368,6 +415,17 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
   flex: 1;
   overflow-y: auto;
   padding-right: 4px;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #e4e7ed;
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #dcdfe6;
+  }
 }
 
 /* 会话项 */
@@ -380,7 +438,6 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
   border: 1px solid transparent;
 
   &:hover { background: #f0f2f5; }
-  
   &.active {
     background: #ffffff;
     border-color: var(--el-color-primary-light-5);
@@ -409,18 +466,12 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
     margin-top: 4px;
     font-family: monospace;
   }
-  
-  .more-btn {
-    padding: 2px 6px;
-    height: auto;
-  }
+  .more-btn { padding: 2px 6px; height: auto; }
 }
 
-.danger-text {
-  color: var(--el-color-danger);
-}
+.danger-text { color: var(--el-color-danger); }
 
-/* 消息区域 */
+/* --- 消息区域 --- */
 .message-container {
   flex: 1;
   min-height: 0;
@@ -429,6 +480,18 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
 
 .msgScroller {
   height: 100%;
+  overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #e4e7ed;
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #dcdfe6;
+  }
 }
 
 .message-wrapper {
@@ -438,12 +501,8 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
   transition: background 0.2s;
   border-bottom: 1px solid #f2f2f2;
 
-  &.user { 
-    background: #fafafa; 
-  }
-  &.assistant { 
-    background: #fff; 
-  }
+  &.user { background: #fafafa; }
+  &.assistant { background: #fff; }
   
   .avatar-col {
     width: 40px;
@@ -452,10 +511,9 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
     flex-direction: column;
     align-items: center;
   }
-
   .content-col {
     flex: 1;
-    min-width: 0; /* 防止 Markdown 撑开容器 */
+    min-width: 0;
   }
 }
 
@@ -476,7 +534,7 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
   white-space: pre-wrap;
 }
 
-/* 输入框区域 */
+/* --- 输入框区域 --- */
 .input-container {
   padding: 20px 32px;
   background: #fff;
@@ -491,9 +549,7 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
   box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   transition: border-color 0.3s;
   
-  &:focus-within {
-    border-color: var(--el-color-primary);
-  }
+  &:focus-within { border-color: var(--el-color-primary); }
   
   :deep(.el-textarea__inner) {
     border: none;
@@ -501,6 +557,14 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
     padding: 8px;
     font-size: 14px;
     background: transparent;
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: #e4e7ed;
+      border-radius: 3px;
+    }
   }
 }
 
@@ -512,14 +576,29 @@ watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
   padding: 0 4px;
 }
 
-/* 设置面板 */
+/* --- 右侧设置面板 --- */
 .w-100 { width: 100%; }
 .settings-form { margin-top: 10px; }
+
+.settings-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 2px;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #e4e7ed;
+    border-radius: 3px;
+  }
+}
+
 .export-actions {
   display: flex; 
   gap: 8px; 
   margin-top: 20px;
-  
+  padding-bottom: 10px;
   .el-button { flex: 1; }
 }
 </style>

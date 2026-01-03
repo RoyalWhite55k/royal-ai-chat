@@ -19,12 +19,23 @@ export type Session = {
   updatedAt: number
 }
 
-// 新增：应用全局设置类型
+// 修改：增加 Cloud 相关配置
 export type AppSettings = {
-  theme: 'light' | 'dark' | 'auto'
-  sendKey: 'Enter' | 'Ctrl+Enter'
+  userNickname: string
+
+  // 模型服务商选择
+  modelProvider: 'local' | 'cloud'
+
+  // Local (Ollama) 配置
   ollamaUrl: string
-  defaultModel: string
+
+  // Cloud (OpenAI/DeepSeek) 配置
+  cloudBaseUrl: string
+  cloudApiKey: string
+  cloudModelName: string
+
+  // 通用配置
+  defaultModel: string      // 本地模式的默认模型
   defaultTemperature: number
   defaultSystemPrompt: string
 }
@@ -36,12 +47,21 @@ export type AppSettings = {
 const LS_SESSION_KEY = 'royal-ai-chat:sessions'
 const LS_SETTINGS_KEY = 'royal-ai-chat:settings'
 
-// 默认设置配置
+// 修改：增加 Cloud 默认值
 const defaultSettings: AppSettings = {
-  theme: 'auto',
-  sendKey: 'Enter',
+  userNickname: 'User',
+  modelProvider: 'local',
+
+  // 本地默认值
   ollamaUrl: '/ollama',
   defaultModel: 'qwen2.5:3b',
+
+  // Cloud 默认值 (默认预设为 DeepSeek，便宜好用)
+  cloudBaseUrl: 'https://api.deepseek.com',
+  cloudApiKey: '',
+  cloudModelName: 'deepseek-chat',
+
+  // 通用
   defaultTemperature: 0.7,
   defaultSystemPrompt: '你是一个有帮助的助手。'
 }
@@ -51,7 +71,6 @@ function now() {
 }
 
 // 辅助函数：创建新会话对象
-// 注意：现在它接收参数，不再自己去读 localStorage，由 Store 传入
 function createSessionHelper(args: {
   model: string,
   systemPrompt: string,
@@ -89,11 +108,11 @@ export const useChatStore = defineStore('chat', () => {
 
   // --- Actions: Load (初始化) ---
   function load() {
-    // 1. 加载设置 (必须先加载设置，因为新建会话可能依赖它)
+    // 1. 加载设置
     const rawSettings = localStorage.getItem(LS_SETTINGS_KEY)
     if (rawSettings) {
       try {
-        // 使用解构合并，确保如果未来加了新配置项，旧数据里没有也不会报错
+        // 使用解构合并，确保旧数据不会覆盖掉新增加的字段
         settings.value = { ...defaultSettings, ...JSON.parse(rawSettings) }
       } catch (e) {
         console.error('Failed to load settings:', e)
@@ -112,7 +131,7 @@ export const useChatStore = defineStore('chat', () => {
       }
     }
 
-    // 3.如果没有会话，创建一个新的
+    // 3. 兜底：如果没有会话，创建一个新的
     if (!sessions.value.length) {
       const s = createSessionHelper({
         model: settings.value.defaultModel,
@@ -122,16 +141,14 @@ export const useChatStore = defineStore('chat', () => {
       activeId.value = s.id
     }
 
-    // 4. 数据清洗/迁移 (防止旧数据结构不兼容)
+    // 4. 数据清洗
     sessions.value.forEach(s => {
-      // 确保有 System Message
       if (!s.messages?.length || s.messages[0].role !== 'system') {
         s.messages = [
           { id: crypto.randomUUID(), role: 'system', content: s.systemPrompt },
           ...(s.messages as any ?? [])
         ]
       }
-      // 确保每条消息都有 ID
       s.messages = (s.messages as any[]).map(m => ({
         id: m.id || crypto.randomUUID(),
         role: m.role,
@@ -141,13 +158,10 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   // --- Watchers: Persistence (持久化) ---
-
-  // 会话持久化 (防抖 300ms)
   const persistSessions = debounce(() => {
     localStorage.setItem(LS_SESSION_KEY, JSON.stringify(sessions.value))
   }, 300)
 
-  // 设置持久化 (立即保存，不需要防抖，因为修改频率低)
   watch(settings, () => {
     localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(settings.value))
   }, { deep: true })
@@ -162,7 +176,6 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function newSession() {
-    // 使用当前设置里的默认模型和提示词
     const s = createSessionHelper({
       model: settings.value.defaultModel,
       systemPrompt: settings.value.defaultSystemPrompt
@@ -176,7 +189,6 @@ export const useChatStore = defineStore('chat', () => {
     if (idx === -1) return
     sessions.value.splice(idx, 1)
 
-    // 如果删除了当前选中的，选中第一个；如果删光了，新建一个
     if (activeId.value === id) {
       activeId.value = sessions.value[0]?.id ?? ''
       if (!activeId.value) newSession()
@@ -195,17 +207,12 @@ export const useChatStore = defineStore('chat', () => {
     if (!s) return
     s.model = model
     s.updatedAt = now()
-
-    // 注意：不再保存 LS_LAST_MODEL，因为我们有了 settings.defaultModel
-    // 如果你希望用户选的模型自动变成下次的默认模型，可以解开下面这行注释：
-    // settings.value.defaultModel = model 
   }
 
   function updateSystemPrompt(id: string, prompt: string) {
     const s = sessions.value.find(x => x.id === id)
     if (!s) return
     s.systemPrompt = prompt
-    // 同时更新消息列表里的第一条 System Message
     if (!s.messages.length || s.messages[0].role !== 'system') {
       s.messages.unshift({ id: crypto.randomUUID(), role: 'system', content: prompt })
     } else {
@@ -224,7 +231,6 @@ export const useChatStore = defineStore('chat', () => {
   function clearMessages(id: string) {
     const s = sessions.value.find(x => x.id === id)
     if (!s) return
-    // 清空时保留 System Prompt
     s.messages = [{ id: crypto.randomUUID(), role: 'system', content: s.systemPrompt }]
     s.updatedAt = now()
   }
@@ -241,15 +247,10 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   return {
-    // State
     sessions,
     activeId,
-    settings, // 导出设置
-
-    // Computed
+    settings,
     activeSession,
-
-    // Actions
     load,
     setActive,
     newSession,
