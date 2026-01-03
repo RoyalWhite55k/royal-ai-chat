@@ -4,7 +4,6 @@
       <div style="padding:14px 12px;font-weight:700;">AI 对话平台</div>
       <el-menu router :default-active="$route.path">
         <el-menu-item index="/chat">聊天</el-menu-item>
-        <el-menu-item index="/prompts">模板库</el-menu-item>
         <el-menu-item index="/models">模型管理</el-menu-item>
         <el-menu-item index="/settings">设置</el-menu-item>
       </el-menu>
@@ -24,8 +23,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
-import { usePromptStore } from '@/stores/prompts'
-const promptStore = usePromptStore()
 const chatStore = useChatStore()
 const titleMap: Record<string, string> = {
   '/chat': '聊天',
@@ -35,6 +32,5 @@ const titleMap: Record<string, string> = {
 }
 onMounted(() => {
   chatStore.load()
-  promptStore.load()
 })
 </script>

@@ -131,9 +131,6 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ollamaChatStream, ollamaTags, type ChatMessage } from '@/services/ollama'
 import { useChatStore } from '@/stores/chat'
-import { useRoute, useRouter } from 'vue-router'
-const route = useRoute()
-const router = useRouter()
 
 
 const chat = useChatStore()
@@ -316,18 +313,4 @@ function exportJSON() {
   if (!active.value) return
   exportSessionJSON(active.value)
 }
-
-watch(
-  () => route.query.tpl,
-  (tplId) => {
-    const id = String(tplId || '')
-    if (!id) return
-    selectedTplId.value = id
-    applyTemplateToInput()
-    // 用完把 query 清掉（避免刷新重复套用）
-    router.replace({ path: '/chat', query: {} })
-  },
-  { immediate: true }
-)
-
 </script>
