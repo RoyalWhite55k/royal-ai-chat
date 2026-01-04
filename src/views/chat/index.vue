@@ -1,12 +1,42 @@
 <template>
   <div class="chat-layout">
-    <el-card class="sidebar-card">
+    
+    <div 
+      class="sidebar-container" 
+      :class="{ 'is-collapsed': isSidebarCollapsed }"
+    >
       <div class="sidebar-header">
-        <div class="title">会话历史</div>
-        <el-button type="primary" size="small" round @click="chat.newSession()">+ 新建</el-button>
+        <div class="logo-area" v-show="!isSidebarCollapsed">
+          <span class="logo-text">AI Chat</span>
+        </div>
+        <el-button 
+          link 
+          class="toggle-btn" 
+          @click="isSidebarCollapsed = !isSidebarCollapsed"
+        >
+          <el-icon :size="20">
+            <component :is="isSidebarCollapsed ? Expand : Fold" />
+          </el-icon>
+        </el-button>
       </div>
-      <el-divider class="sidebar-divider" />
-      <div class="session-list">
+
+      <div class="action-area">
+        <el-tooltip content="新建会话" placement="right" :disabled="!isSidebarCollapsed">
+          <el-button 
+            type="primary" 
+            :class="{ 'is-icon-only': isSidebarCollapsed }" 
+            round 
+            block 
+            @click="chat.newSession()"
+          >
+            <span v-if="!isSidebarCollapsed">+ 新建会话</span>
+            <span v-else>+</span>
+          </el-button>
+        </el-tooltip>
+      </div>
+
+      <div class="session-list-scroll" v-show="!isSidebarCollapsed">
+        <div class="session-group-title">最近会话</div>
         <div
           v-for="s in chat.sessions"
           :key="s.id"
@@ -14,34 +44,47 @@
           class="session-item"
           :class="{ active: s.id === chat.activeId }"
         >
-          <div class="session-info">
-            <div class="session-title">{{ s.title }}</div>
-            <el-dropdown trigger="click" @command="(cmd: string) => onSessionCommand(cmd, s.id)">
-              <el-button text size="small" class="more-btn">⋯</el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="rename">重命名</el-dropdown-item>
-                  <el-dropdown-item command="delete" divided class="danger-text">删除</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </div>
-          <div class="session-meta">
-            {{ chat.settings.modelProvider === 'cloud' ? 'Cloud' : s.model }}
-          </div>
+          <div class="session-title">{{ s.title }}</div>
+          <el-dropdown trigger="click" @command="(cmd: string) => onSessionCommand(cmd, s.id)">
+            <el-icon class="more-icon" @click.stop><MoreFilled /></el-icon>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="rename">重命名</el-dropdown-item>
+                <el-dropdown-item command="delete" class="danger-text">删除</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </div>
-    </el-card>
 
-    <el-card class="main-card chat-area">
-      <div class="message-container">
+      <div class="sidebar-footer">
+        <el-tooltip content="全局设置" placement="right" :disabled="!isSidebarCollapsed">
+          <div class="footer-item" @click="router.push('/settings')">
+            <el-icon :size="20"><Setting /></el-icon>
+            <span v-if="!isSidebarCollapsed" class="footer-text">设置</span>
+          </div>
+        </el-tooltip>
+      </div>
+    </div>
+
+    <div class="main-chat-area">
+      <div class="chat-header">
+        <div class="header-info">
+          <span class="model-tag">{{ chat.settings.modelProvider === 'cloud' ? 'Cloud' : active?.model }}</span>
+          <span class="chat-title">{{ active?.title || '新会话' }}</span>
+        </div>
+        <el-button text circle @click="showConfig = !showConfig">
+          <el-icon :size="18"><Operation /></el-icon>
+        </el-button>
+      </div>
+
+      <div class="message-scroll-container">
         <DynamicScroller
-          class="msgScroller"
+          class="scroller"
           ref="scrollerRef"
           :items="activeMessages"
           key-field="id"
-          :min-item-size="64"
-          :buffer="400"
+          :min-item-size="60"
         >
           <template #default="{ item, active }">
             <DynamicScrollerItem
@@ -49,16 +92,21 @@
               :active="active"
               :size-dependencies="[item.content]"
             >
-              <div :class="['message-wrapper', item.role]">
-                <div class="avatar-col">
-                  <div class="role-badge">{{ roleLabel[item.role] ?? item.role }}</div>
-                </div>
-                <div class="content-col">
-                  <MarkdownText 
-                    v-if="item.role === 'assistant'" 
-                    :content="item.content" 
-                  />
-                  <div v-else class="user-text">{{ item.content }}</div>
+              <div class="message-row" :class="item.role">
+                <div class="message-content-box">
+                  <div class="avatar-col">
+                    <div class="avatar-circle">
+                      {{ item.role === 'user' ? 'ME' : 'AI' }}
+                    </div>
+                  </div>
+                  <div class="text-col">
+                    <div v-if="item.role === 'assistant'" class="ai-content">
+                       <MarkdownText :content="item.content" />
+                    </div>
+                    <div v-else class="user-bubble">
+                      {{ item.content }}
+                    </div>
+                  </div>
                 </div>
               </div>
             </DynamicScrollerItem>
@@ -66,106 +114,126 @@
         </DynamicScroller>
       </div>
 
-      <div class="input-container">
-        <div class="input-box">
-          <el-input
-            v-model="input"
-            type="textarea"
-            :autosize="{ minRows: 1, maxRows: 8 }"
-            placeholder="输入消息… (Enter 发送, Shift+Enter 换行)"
-            @keydown.enter.exact.prevent="send"
-            resize="none"
-          />
-          <div class="action-bar">
-            <div class="left-actions">
-               <el-button circle size="small" :disabled="streaming" @click="clearChat" title="清空对话">
-                  <el-icon><Delete /></el-icon>
+      <div class="input-area-wrapper">
+        <div class="input-centered-box">
+          <div class="input-box">
+            <el-input
+              v-model="input"
+              type="textarea"
+              :autosize="{ minRows: 1, maxRows: 8 }"
+              placeholder="发送消息给 AI..."
+              @keydown.enter.exact.prevent="send"
+              resize="none"
+              class="chat-input"
+            />
+            <div class="input-actions">
+               <el-tooltip content="清空对话">
+                 <el-button circle size="small" text @click="clearChat">
+                    <el-icon><Delete /></el-icon>
+                 </el-button>
+               </el-tooltip>
+               <el-button 
+                 v-if="streaming" 
+                 type="danger" 
+                 size="small" 
+                 round 
+                 @click="stop"
+               >
+                 停止
+               </el-button>
+               <el-button 
+                 v-else 
+                 type="primary" 
+                 size="small" 
+                 round 
+                 :disabled="!input.trim()" 
+                 @click="send"
+               >
+                 <el-icon><Position /></el-icon>
                </el-button>
             </div>
-            <div class="right-actions">
-              <el-button v-if="streaming" type="danger" plain size="small" round @click="stop">停止生成</el-button>
-              <el-button v-else type="primary" size="small" round :disabled="!input.trim()" @click="send">发送</el-button>
-            </div>
+          </div>
+          <div class="footer-tips">
+            AI 生成的内容可能不准确，请核实重要信息。
           </div>
         </div>
       </div>
-    </el-card>
+    </div>
 
-    <el-card class="sidebar-card settings-panel">
-      <div class="sidebar-header">
-        <div class="title">会话配置</div>
+    <div class="right-drawer" :class="{ 'is-open': showConfig }">
+      <div class="drawer-header">
+        <span>当前会话设置</span>
+        <el-icon class="close-btn" @click="showConfig = false"><Close /></el-icon>
       </div>
-
-      <div class="settings-scroll-area">
-        <el-form label-position="top" v-if="active" class="settings-form">
-          
-          <el-form-item label="使用的模型">
+      <div class="drawer-content">
+        <el-form label-position="top" v-if="active" size="small">
+          <el-form-item label="模型">
             <template v-if="chat.settings.modelProvider === 'local'">
-              <el-select v-model="active.model" class="w-100" filterable @change="onModelChange">
+              <el-select v-model="active.model" style="width:100%" @change="onModelChange">
                 <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
               </el-select>
             </template>
             <template v-else>
-              <el-input :model-value="chat.settings.cloudModelName" disabled>
-                <template #prefix>☁️</template>
-              </el-input>
-              <div style="font-size:12px;color:#999;margin-top:4px;">当前使用云端模式，请在设置页修改配置</div>
+               <el-input :model-value="chat.settings.cloudModelName" disabled>
+                 <template #prefix>☁️</template>
+               </el-input>
             </template>
           </el-form-item>
-
-          <el-form-item label="系统提示词 (System Prompt)">
-            <el-input
-              v-model="active.systemPrompt"
-              type="textarea"
-              :autosize="{ minRows: 4, maxRows: 15 }" 
-              placeholder="例如：你是一个资深的程序员助手..."
+          <el-form-item label="System Prompt">
+            <el-input 
+              v-model="active.systemPrompt" 
+              type="textarea" 
+              :rows="6" 
               @input="onSystemPromptInput"
             />
           </el-form-item>
         </el-form>
-
-        <div v-if="active" class="export-actions">
-          <el-button size="small" @click="exportMD">导出 MD</el-button>
-          <el-button size="small" @click="exportJSON">导出 JSON</el-button>
+        <div class="drawer-actions">
+           <el-button size="small" @click="exportMD">导出 Markdown</el-button>
+           <el-button size="small" @click="exportJSON">导出 JSON</el-button>
         </div>
       </div>
-    </el-card>
-  </div>
+    </div>
 
-  <el-dialog v-model="renameOpen" title="重命名会话" width="400px" align-center>
-    <el-input v-model="renameText" placeholder="输入新的会话标题" @keyup.enter="doRename" />
+  </div>
+  
+  <el-dialog v-model="renameOpen" title="重命名" width="300px" align-center>
+    <el-input v-model="renameText" @keyup.enter="doRename" />
     <template #footer>
-      <el-button @click="renameOpen=false">取消</el-button>
-      <el-button type="primary" @click="doRename">保存</el-button>
+      <el-button @click="renameOpen = false">取消</el-button>
+      <el-button type="primary" @click="doRename">确定</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { Delete } from '@element-plus/icons-vue'
+import { 
+  Fold, Expand, Delete, Position, Setting, 
+  MoreFilled, Operation, Close 
+} from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 import { exportSessionJSON, exportSessionMarkdown } from '@/utils/export'
-import { ollamaChatOnce } from '@/services/ollama'
-// 引入云端服务
+import { ollamaChatOnce, ollamaChatStream, ollamaTags, type ChatMessage } from '@/services/ollama'
 import { openaiChatStream } from '@/services/openai'
 import { computed, onMounted, ref, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ollamaChatStream, ollamaTags, type ChatMessage } from '@/services/ollama'
 import { useChatStore } from '@/stores/chat'
 import MarkdownText from '@/components/MarkdownText.vue'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 
+const router = useRouter()
 const chat = useChatStore()
-const roleLabel: Record<string, string> = { system: 'System', user: 'Me', assistant: 'AI' }
 const input = ref('')
 const streaming = ref(false)
-let controller: AbortController | null = null
-const modelOptions = ref<string[]>(['qwen2.5:3b'])
+const showConfig = ref(false)
+const isSidebarCollapsed = ref(false)
 
+let controller: AbortController | null = null
+const modelOptions = ref<string[]>([])
 const active = computed(() => chat.activeSession)
 const activeMessages = computed(() => active.value?.messages ?? [])
 
 async function loadModels() {
-  // 只有本地模式才需要加载本地模型列表
   if (chat.settings.modelProvider !== 'local') return
   try {
     const data = await ollamaTags()
@@ -174,97 +242,58 @@ async function loadModels() {
   } catch {}
 }
 onMounted(loadModels)
+watch(() => chat.settings.modelProvider, (val) => { if (val === 'local') loadModels() })
 
-// 监听模式切换，如果是本地模式，重新获取模型列表
-watch(() => chat.settings.modelProvider, (val) => {
-  if (val === 'local') loadModels()
-})
-
-function onModelChange(val: string) {
-  if (!active.value) return
-  chat.updateModel(active.value.id, val)
-}
-
-function onSystemPromptInput() {
-  if (!active.value) return
-  chat.updateSystemPrompt(active.value.id, active.value.systemPrompt)
-}
+function onModelChange(val: string) { if (active.value) chat.updateModel(active.value.id, val) }
+function onSystemPromptInput() { if (active.value) chat.updateSystemPrompt(active.value.id, active.value.systemPrompt) }
 
 function clearChat() {
   if (!active.value || streaming.value) return
-  ElMessageBox.confirm('确定清空当前所有对话吗？', '提示').then(() => {
-    chat.clearMessages(active.value!.id)
-  })
+  ElMessageBox.confirm('确定清空当前所有对话吗？', '提示').then(() => chat.clearMessages(active.value!.id))
 }
-
-// ----------------------------------------------------
-// 核心逻辑修改：send 函数支持云端/本地切换
-// ----------------------------------------------------
-// src/views/chat/index.vue
 
 async function send() {
   const text = input.value.trim()
-  if (!text || streaming.value) return
-  if (!active.value) return
-
+  if (!text || streaming.value || !active.value) return
   const sid = active.value.id
   input.value = ''
 
-  // 1. UI 层：先在界面上把用户的话和 AI 的空气泡加上
   chat.pushMessage(sid, { role: 'user', content: text })
-  chat.pushMessage(sid, { role: 'assistant', content: '' }) // 占位
+  chat.pushMessage(sid, { role: 'assistant', content: '' })
   const assistantIndex = chat.activeSession!.messages.length - 1
 
   streaming.value = true
   controller = new AbortController()
 
-  // 2. 数据层：准备发给 API 的数据
-  // ⚠️ 关键修正：这里我们要把刚才加的最后一条空 assistant 消息去掉！
-  // 否则 Google/OpenAI 会报错
   const allMessages = chat.activeSession!.messages
-  const payload = allMessages.slice(0, -1).map(m => ({ 
-    role: m.role, 
-    content: m.content 
-  }))
+  const payload = allMessages.slice(0, -1).map(m => ({ role: m.role, content: m.content }))
 
   try {
     const settings = chat.settings
-
     if (settings.modelProvider === 'cloud') {
-      // === 云端模式 ===
       if (!settings.cloudApiKey) throw new Error('请先在设置页配置 API Key')
-      
       await openaiChatStream({
         baseUrl: settings.cloudBaseUrl,
         apiKey: settings.cloudApiKey,
         model: settings.cloudModelName,
-        messages: payload, // ✅ 发送不带空尾巴的消息列表
+        messages: payload,
         temperature: settings.defaultTemperature,
         signal: controller.signal,
-        onToken(t) {
-          chat.activeSession!.messages[assistantIndex].content += t
-        }
+        onToken(t) { chat.activeSession!.messages[assistantIndex].content += t }
       })
-
+      await autoRenameIfNeeded(sid)
     } else {
-      // === 本地模式 ===
-      // Ollama 比较宽容，其实带不带空尾巴它都能跑，但为了统一，我们也用 payload
       await ollamaChatStream({
         model: chat.activeSession!.model,
-        messages: payload, 
+        messages: payload,
         signal: controller.signal,
-        onToken(t) {
-          chat.activeSession!.messages[assistantIndex].content += t
-        }
+        onToken(t) { chat.activeSession!.messages[assistantIndex].content += t }
       })
       await autoRenameIfNeeded(sid)
     }
-
   } catch (e: any) {
-    // 错误处理...
-    if (e?.name === 'AbortError') {
-      chat.activeSession!.messages[assistantIndex].content += '\n\n[已停止生成]'
-    } else {
+    if (e?.name === 'AbortError') chat.activeSession!.messages[assistantIndex].content += '\n\n[已停止生成]'
+    else {
       chat.activeSession!.messages[assistantIndex].content += `\n\n[Error] ${e?.message ?? String(e)}`
       ElMessage.error(e?.message ?? 'Request Failed')
     }
@@ -276,10 +305,7 @@ async function send() {
 
 function stop() { controller?.abort() }
 
-const renameOpen = ref(false)
-const renameText = ref('')
-let renameId = ''
-
+const renameOpen = ref(false), renameText = ref(''), renameId = ''
 function onSessionCommand(cmd: string, id: string) {
   if (cmd === 'rename') {
     const s = chat.sessions.find(x => x.id === id)
@@ -287,318 +313,253 @@ function onSessionCommand(cmd: string, id: string) {
     renameText.value = s?.title ?? ''
     renameOpen.value = true
   } else if (cmd === 'delete') {
-    ElMessageBox.confirm('确认删除该会话？', '提示', { type: 'warning' }).then(() => chat.removeSession(id))
+    ElMessageBox.confirm('确认删除？').then(() => chat.removeSession(id))
   }
 }
-
-function isDefaultTitle(t: string) { return t === '新会话' || t === '未命名会话' || !t?.trim() }
-
-function cleanTitle(raw: string) {
-  let s = raw.trim().replace(/^["“”'《》]+|["“”'《》]+$/g, '').replace(/\s+/g, ' ').replace(/[。！？!?,，.]+$/g, '')
-  if (s.length > 20) s = s.slice(0, 20)
-  return s
-}
+function doRename() { chat.renameSession(renameId, renameText.value); renameOpen.value = false }
 
 async function autoRenameIfNeeded(sessionId: string) {
   const s = chat.sessions.find(x => x.id === sessionId)
-  if (!s || !isDefaultTitle(s.title)) return
-  
+  if (!s || s.title !== '新会话') return
   const msgs = s.messages.filter(m => m.role !== 'system')
   if (msgs.length < 2) return 
-
-  const firstUser = msgs.find(m => m.role === 'user')?.content ?? ''
-  const firstAssistant = msgs.find(m => m.role === 'assistant')?.content ?? ''
   
+  const promptMessages: ChatMessage[] = [
+    { role: 'system', content: '请生成一个10字以内的中文标题，不要标点。' },
+    { role: 'user', content: `用户:${msgs[0].content}\nAI:${msgs[1].content}` },
+  ]
   try {
-    const title = await ollamaChatOnce({
-      model: s.model,
-      messages: [
-        { role: 'system', content: '你是一个标题生成器。请用一个极其简短的中文标题概括对话（10字以内）。不要加任何标点符号。' },
-        { role: 'user', content: `用户说：${firstUser}\nAI回复：${firstAssistant}` },
-      ],
-    })
-    const finalTitle = cleanTitle(title)
+    let title = ''
+    if (chat.settings.modelProvider === 'cloud') {
+      await openaiChatStream({
+        baseUrl: chat.settings.cloudBaseUrl,
+        apiKey: chat.settings.cloudApiKey,
+        model: chat.settings.cloudModelName,
+        messages: promptMessages,
+        temperature: 0.7,
+        onToken: (t) => title += t
+      })
+    } else {
+      title = await ollamaChatOnce({ model: s.model, messages: promptMessages })
+    }
+    const finalTitle = title.trim().replace(/["《》]/g, '').slice(0, 20)
     if (finalTitle) chat.setTitle(sessionId, finalTitle)
   } catch {}
-}
-
-function doRename() {
-  chat.renameSession(renameId, renameText.value)
-  renameOpen.value = false
 }
 
 function exportMD() { if (active.value) exportSessionMarkdown(active.value) }
 function exportJSON() { if (active.value) exportSessionJSON(active.value) }
 
 const scrollerRef = ref<any>(null)
-
-function scrollToBottom() {
-  nextTick(() => {
-    const scroller = scrollerRef.value
-    if (scroller) {
-      scroller.scrollToBottom()
-    }
-  })
-}
-
-watch(() => activeMessages.value.length, () => scrollToBottom())
-watch(() => activeMessages.value.at(-1)?.content, () => { 
-  if (streaming.value) scrollToBottom() 
-})
-watch(() => chat.activeId, () => scrollToBottom(), { immediate: true })
+function scrollToBottom() { nextTick(() => scrollerRef.value?.scrollToBottom()) }
+watch(() => activeMessages.value.length, scrollToBottom)
+watch(() => activeMessages.value.at(-1)?.content, () => { if (streaming.value) scrollToBottom() })
+watch(() => chat.activeId, scrollToBottom, { immediate: true })
 </script>
 
 <style scoped lang="scss">
-/* --- 布局容器 --- */
+/* --- 整体布局 --- */
 .chat-layout {
   display: flex;
-  gap: 12px;
-  height: calc(100vh - 120px);
+  height: 100%; /* 保持 100% 修复外层滚动条问题 */
+  background-color: #fff;
+  color: #333;
   overflow: hidden;
-  background-color: #f5f7fa;
-  padding: 12px;
 }
 
-/* --- 卡片通用样式 --- */
-.sidebar-card, .main-card {
-  border-radius: 12px;
-  border: none;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+/* --- 1. 左侧侧边栏 --- */
+.sidebar-container {
+  width: 260px;
+  background-color: #f7f7f8;
+  border-right: 1px solid #eee;
   display: flex;
   flex-direction: column;
-}
+  transition: width 0.3s ease;
+  flex-shrink: 0;
+  position: relative; 
 
-.sidebar-card {
-  width: 280px;
-  :deep(.el-card__body) {
-    padding: 12px;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+  &.is-collapsed {
+    width: 64px;
+    
+    .sidebar-header { justify-content: center; padding: 12px 0; }
+    .action-area { padding: 0 10px; }
+    
+    /* ✨ 修复点1: 移除这里对 footer 的 padding 操作，避免高度跳动 */
+    /* .sidebar-footer { justify-content: center; padding: 12px 0; } <-- 删掉这行 */
   }
 }
 
-.main-card {
-  flex: 1;
-  :deep(.el-card__body) {
-    padding: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-}
-
-.settings-panel {
-  width: 300px;
-}
-
-/* --- 左侧会话列表 --- */
 .sidebar-header {
+  height: 60px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 4px 0;
-  
-  .title {
-    font-weight: 700;
-    font-size: 16px;
-  }
+  justify-content: space-between;
+  padding: 0 16px;
+  flex-shrink: 0;
+  .logo-text { font-weight: bold; font-size: 18px; color: #444; }
+  .toggle-btn { color: #666; font-size: 18px; }
 }
 
-.sidebar-divider {
-  margin: 16px 0;
+.action-area {
+  padding: 0 16px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+  .is-icon-only { padding: 8px; width: 100%; }
 }
 
-.session-list {
+.session-list-scroll {
   flex: 1;
   overflow-y: auto;
-  padding-right: 4px;
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: #e4e7ed;
-    border-radius: 3px;
-  }
-  &::-webkit-scrollbar-thumb:hover {
-    background: #dcdfe6;
-  }
+  padding: 0 8px;
+  margin-bottom: 60px; 
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
 }
 
-/* 会话项 */
+.session-group-title { font-size: 12px; color: #999; margin: 8px 8px; }
+
 .session-item {
-  padding: 10px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-bottom: 4px;
-  transition: all 0.2s;
-  border: 1px solid transparent;
-
-  &:hover { background: #f0f2f5; }
-  &.active {
-    background: #ffffff;
-    border-color: var(--el-color-primary-light-5);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  }
-
-  .session-info {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .session-title {
-    font-weight: 500;
-    font-size: 14px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: #333;
-  }
-  
-  .session-meta {
-    font-size: 11px;
-    opacity: .5;
-    margin-top: 4px;
-    font-family: monospace;
-  }
-  .more-btn { padding: 2px 6px; height: auto; }
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; margin-bottom: 2px; border-radius: 8px;
+  cursor: pointer; color: #333; font-size: 14px;
+  &:hover { background-color: #eee; }
+  &.active { background-color: #e5e5e5; font-weight: 500; }
+  .session-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .more-icon { display: none; color: #999; font-size: 14px; padding: 4px; border-radius: 4px; }
+  &:hover .more-icon { display: block; &:hover { background: #ddd; } }
 }
 
-.danger-text { color: var(--el-color-danger); }
-
-/* --- 消息区域 --- */
-.message-container {
-  flex: 1;
-  min-height: 0;
-  background-color: #fff;
-}
-
-.msgScroller {
-  height: 100%;
-  overflow-y: auto;
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: #e4e7ed;
-    border-radius: 3px;
-  }
-  &::-webkit-scrollbar-thumb:hover {
-    background: #dcdfe6;
-  }
-}
-
-.message-wrapper {
-  padding: 24px 32px;
+/* ✨ 修复点2: Sidebar Footer 布局丝滑化 */
+.sidebar-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 50px; /* 高度绝对固定 */
+  border-top: 1px solid #eee;
   display: flex;
-  gap: 16px;
-  transition: background 0.2s;
-  border-bottom: 1px solid #f2f2f2;
-
-  &.user { background: #fafafa; }
-  &.assistant { background: #fff; }
+  align-items: center;
+  /* padding: 0 16px; <-- 删掉这行，交给内部 item 处理 */
+  padding: 0; 
+  background: #f7f7f8;
   
-  .avatar-col {
-    width: 40px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  .content-col {
-    flex: 1;
-    min-width: 0;
+  .footer-item {
+    display: flex; 
+    align-items: center; 
+    width: 100%;
+    height: 100%; /* 撑满父容器 */
+    padding: 0 16px; /* 默认 Padding 在这里 */
+    cursor: pointer; 
+    color: #555;
+    transition: all 0.3s; /* 平滑过渡 */
+    
+    &:hover { color: #333; }
+    
+    .footer-text { margin-left: 8px; }
+
+    /* ✨ 当侧边栏收缩时：只修改内部对齐方式和 padding */
+    .sidebar-container.is-collapsed & {
+      justify-content: center;
+      padding: 0; /* 收缩时去除 padding，图标自动居中 */
+    }
   }
 }
 
-.role-badge {
-  font-size: 11px;
-  font-weight: bold;
-  text-transform: uppercase;
-  color: #909399;
-  background: #f0f2f5;
-  padding: 4px 8px;
-  border-radius: 4px;
+/* --- 2. 中间聊天区 --- */
+.main-chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 0;
 }
 
-.user-text {
-  font-size: 14px;
-  line-height: 1.6;
-  color: #333;
-  white-space: pre-wrap;
+.chat-header {
+  height: 60px;
+  border-bottom: 1px solid #f2f2f2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  flex-shrink: 0;
+  .header-info { display: flex; align-items: center; gap: 8px; }
+  .model-tag { font-size: 12px; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; color: #666; }
+  .chat-title { font-weight: 600; font-size: 16px; }
 }
+
+.message-scroll-container {
+  flex: 1;
+  overflow: hidden; 
+  background-color: #fff;
+  position: relative;
+}
+
+.scroller { height: 100%; overflow-y: auto; }
+
+.message-row {
+  display: flex; justify-content: center; padding: 24px 0; width: 100%;
+  &.user .message-content-box { flex-direction: row-reverse; }
+}
+
+.message-content-box {
+  width: 100%; max-width: 800px; padding: 0 20px; display: flex; gap: 16px;
+}
+
+.avatar-col { flex-shrink: 0; }
+.avatar-circle {
+  width: 32px; height: 32px; border-radius: 50%; background: #f0f0f0; color: #666;
+  font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center;
+}
+.message-row.user .avatar-circle { background: #333; color: #fff; }
+
+.text-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.message-row.user .text-col { align-items: flex-end; }
+
+.user-bubble {
+  background-color: #f3f3f3; color: #000; padding: 10px 16px;
+  border-radius: 20px; border-top-right-radius: 4px;
+  font-size: 15px; line-height: 1.6; white-space: pre-wrap;
+  display: inline-block; max-width: 100%; text-align: left;
+}
+.ai-content { font-size: 15px; line-height: 1.6; color: #222; }
 
 /* --- 输入框区域 --- */
-.input-container {
-  padding: 20px 32px;
+.input-area-wrapper {
+  padding: 0 20px 24px 20px;
+  display: flex; justify-content: center; 
+  flex-shrink: 0;
   background: #fff;
-  border-top: 1px solid #eee;
 }
+.input-centered-box { width: 100%; max-width: 800px; }
 
 .input-box {
-  border: 1px solid #dcdfe6;
-  border-radius: 12px;
-  padding: 8px;
-  background: #fff;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-  transition: border-color 0.3s;
-  
-  &:focus-within { border-color: var(--el-color-primary); }
-  
+  background: #f4f4f4; border-radius: 24px; padding: 8px 12px 8px 16px;
+  display: flex; flex-direction: column; border: 1px solid transparent;
+  transition: all 0.2s;
+  &:focus-within { background: #fff; border-color: #ccc; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+}
+
+.chat-input {
   :deep(.el-textarea__inner) {
-    border: none;
-    box-shadow: none;
-    padding: 8px;
-    font-size: 14px;
-    background: transparent;
-
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
-    &::-webkit-scrollbar-thumb {
-      background: #e4e7ed;
-      border-radius: 3px;
-    }
+    background: transparent !important; box-shadow: none !important; padding: 0; border: none; font-size: 15px;
   }
 }
 
-.action-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 4px;
-  padding: 0 4px;
+.input-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+.footer-tips { text-align: center; color: #bbb; font-size: 12px; margin-top: 8px; }
+
+.right-drawer {
+  width: 0; border-left: 1px solid #eee; background: #fcfcfc;
+  overflow: hidden; transition: width 0.3s ease; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  &.is-open { width: 300px; }
 }
 
-/* --- 右侧设置面板 --- */
-.w-100 { width: 100%; }
-.settings-form { margin-top: 10px; }
-
-.settings-scroll-area {
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 2px;
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: #e4e7ed;
-    border-radius: 3px;
-  }
+.drawer-header {
+  height: 60px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; font-weight: 600; border-bottom: 1px solid #eee; flex-shrink: 0;
+  .close-btn { cursor: pointer; color: #999; &:hover { color: #333; } }
 }
-
-.export-actions {
-  display: flex; 
-  gap: 8px; 
-  margin-top: 20px;
-  padding-bottom: 10px;
-  .el-button { flex: 1; }
-}
+.drawer-content { padding: 16px; flex: 1; overflow-y: auto; }
+.drawer-actions { margin-top: 24px; display: flex; gap: 10px; }
 </style>

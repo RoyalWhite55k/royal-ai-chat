@@ -1,95 +1,128 @@
 <template>
   <el-container class="app-layout">
     
-    <el-aside width="220px" class="app-sidebar">
-      <div style="padding:14px 12px; font-weight:700; font-size: 16px;">AI 对话平台</div>
-      <el-menu router :default-active="$route.path" style="border-right: none;">
-        <el-menu-item index="/chat">聊天</el-menu-item>
-        <el-menu-item index="/settings">设置</el-menu-item>
-      </el-menu>
-    </el-aside>
+    <el-header class="app-header">
+      <div class="header-left">
+        <el-button 
+          v-if="$route.path !== '/chat'" 
+          link 
+          :icon="ArrowLeft" 
+          @click="$router.push('/chat')"
+          style="margin-right: 8px; font-size: 16px;"
+        />
+        <div class="header-title">{{ currentTitle }}</div>
+      </div>
 
-    <el-container class="right-container">
-      <el-header class="app-header">
-        <div style="font-weight:700;">{{ titleMap[$route.path] ?? 'AI 对话平台' }}</div>
-      </el-header>
-      
-      <el-main class="app-main">
-        <router-view />
-      </el-main>
-    </el-container>
+      <div class="header-right">
+        <el-button 
+          v-if="$route.path === '/chat'" 
+          :icon="Setting" 
+          circle 
+          plain
+          @click="$router.push('/settings')"
+          title="系统设置" 
+        />
+        <el-button 
+          v-else 
+          :icon="Close" 
+          circle 
+          plain
+          @click="$router.push('/chat')"
+          title="返回聊天"
+        />
+      </div>
+    </el-header>
+    
+    <el-main class="app-main">
+      <router-view />
+    </el-main>
 
   </el-container>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useChatStore } from '@/stores/chat'
+import { Setting, ArrowLeft, Close } from '@element-plus/icons-vue'
+
 const chatStore = useChatStore()
+const route = useRoute()
+const router = useRouter()
+
 const titleMap: Record<string, string> = {
-  '/chat': '聊天',
-  '/prompts': 'Prompt 模板库',
-  '/models': '模型管理',
-  '/settings': '设置',
+  '/chat': 'AI 对话平台',
+  '/settings': '系统设置',
 }
+
+const currentTitle = computed(() => titleMap[route.path] ?? 'AI 对话平台')
+
 onMounted(() => {
   chatStore.load()
+  if (route.path === '/') {
+    router.replace('/chat')
+  }
 })
 </script>
 
 <style>
-/* 全局样式重置：确保 html/body 没有默认 margin 且占满高度 */
+/* 全局样式重置 */
 html, body, #app {
   margin: 0;
   padding: 0;
   height: 100%;
-  overflow: hidden; /* 禁止浏览器最外层滚动 */
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 </style>
 
 <style scoped lang="scss">
+/* 布局样式保持不变 */
 .app-layout {
-  height: 100vh; /* 强制占满屏幕高度 */
+  height: 100vh;
   width: 100vw;
-  overflow: hidden;
-}
-
-.app-sidebar {
-  border-right: 1px solid var(--el-border-color);
-  background-color: #fff;
-  height: 100%;
+  background-color: #f5f7fa;
   display: flex;
   flex-direction: column;
-}
-
-.right-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden; /* 防止 header 被卷走 */
 }
 
 .app-header {
   display: flex;
   align-items: center;
-  border-bottom: 1px solid var(--el-border-color);
-  height: 60px; /* 固定头部高度 */
+  justify-content: space-between;
+  border-bottom: 1px solid #e4e7ed;
+  height: 60px;
   flex-shrink: 0;
   background-color: #fff;
+  padding: 0 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.header-title {
+  font-weight: 700;
+  font-size: 18px;
+  color: #303133;
 }
 
 .app-main {
   flex: 1;
-  padding: 12px;
-  overflow-y: auto; 
-  background-color: #f5f7fa; 
-
+  padding: 16px;
+  overflow-y: auto;
+  
   &::-webkit-scrollbar {
     width: 6px;
   }
   &::-webkit-scrollbar-thumb {
     background: #e4e7ed;
     border-radius: 3px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
 </style>

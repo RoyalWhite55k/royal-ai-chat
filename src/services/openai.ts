@@ -13,9 +13,7 @@ export interface OpenAIChatOptions {
 export async function openaiChatStream(options: OpenAIChatOptions) {
   let url = options.baseUrl.trim()
 
-  // 🛡️【路径修正】确保 Google URL 绝对正确
   if (url.includes('googleapis.com')) {
-    // 强制使用标准路径，不带 ?key= 参数
     url = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
   }
   else if (!url.endsWith('/chat/completions')) {
@@ -26,13 +24,12 @@ export async function openaiChatStream(options: OpenAIChatOptions) {
 
   const res = await fetch(url, {
     method: 'POST',
-    // ✨【关键修正】Google 的 OpenAI 兼容接口必须用 Bearer Header
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${options.apiKey}`
     },
     body: JSON.stringify({
-      model: options.model, // 确保是 gemini-1.5-flash
+      model: options.model,
       messages: options.messages,
       stream: true,
       temperature: options.temperature ?? 0.7

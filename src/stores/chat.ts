@@ -3,12 +3,8 @@ import { computed, ref, watch } from 'vue'
 import debounce from 'lodash.debounce'
 import type { ChatMessage } from '@/services/ollama'
 
-// ==========================================
-// 1. 类型定义 
-// ==========================================
-
+// ... 类型定义保持不变 ...
 export type SessionMessage = ChatMessage & { id: string }
-
 export type Session = {
   id: string
   title: string
@@ -19,104 +15,64 @@ export type Session = {
   updatedAt: number
 }
 
-// 修改：增加 Cloud 相关配置
 export type AppSettings = {
   userNickname: string
-
-  // 模型服务商选择
   modelProvider: 'local' | 'cloud'
-
-  // Local (Ollama) 配置
   ollamaUrl: string
-
-  // Cloud (OpenAI/DeepSeek) 配置
+  defaultModel: string
   cloudBaseUrl: string
   cloudApiKey: string
   cloudModelName: string
-
-  // 通用配置
-  defaultModel: string      // 本地模式的默认模型
   defaultTemperature: number
   defaultSystemPrompt: string
 }
 
-// ==========================================
-// 2. 常量与默认值
-// ==========================================
-
 const LS_SESSION_KEY = 'royal-ai-chat:sessions'
 const LS_SETTINGS_KEY = 'royal-ai-chat:settings'
+const LS_ACTIVE_ID_KEY = 'royal-ai-chat:active-id' // ✨ 新增：激活ID的存储Key
 
-// 修改：增加 Cloud 默认值
 const defaultSettings: AppSettings = {
   userNickname: 'User',
   modelProvider: 'local',
-
-  // 本地默认值
   ollamaUrl: '/ollama',
   defaultModel: 'qwen2.5:3b',
-
-  // Cloud 默认值 (默认预设为 DeepSeek，便宜好用)
   cloudBaseUrl: 'https://api.deepseek.com',
   cloudApiKey: '',
   cloudModelName: 'deepseek-chat',
-
-  // 通用
   defaultTemperature: 0.7,
   defaultSystemPrompt: '你是一个有帮助的助手。'
 }
 
-function now() {
-  return Date.now()
-}
+function now() { return Date.now() }
 
-// 辅助函数：创建新会话对象
-function createSessionHelper(args: {
-  model: string,
-  systemPrompt: string,
-  title?: string
-}): Session {
+function createSessionHelper(args: { model: string, systemPrompt: string, title?: string }): Session {
   return {
     id: crypto.randomUUID(),
     title: args.title ?? '新会话',
     model: args.model,
     systemPrompt: args.systemPrompt,
     messages: [
-      {
-        id: crypto.randomUUID(),
-        role: 'system',
-        content: args.systemPrompt
-      }
+      { id: crypto.randomUUID(), role: 'system', content: args.systemPrompt }
     ],
     createdAt: now(),
     updatedAt: now(),
   }
 }
 
-// ==========================================
-// 3. Store 定义
-// ==========================================
-
 export const useChatStore = defineStore('chat', () => {
-  // --- State ---
   const sessions = ref<Session[]>([])
   const activeId = ref<string>('')
   const settings = ref<AppSettings>({ ...defaultSettings })
 
-  // --- Computed ---
   const activeSession = computed(() => sessions.value.find(s => s.id === activeId.value) || null)
 
-  // --- Actions: Load (初始化) ---
   function load() {
     // 1. 加载设置
     const rawSettings = localStorage.getItem(LS_SETTINGS_KEY)
     if (rawSettings) {
       try {
-        // 使用解构合并，确保旧数据不会覆盖掉新增加的字段
         settings.value = { ...defaultSettings, ...JSON.parse(rawSettings) }
-      } catch (e) {
-        console.error('Failed to load settings:', e)
-      }
+      } catch (e) { console.error(e) }
     }
 
     // 2. 加载会话
@@ -124,14 +80,10 @@ export const useChatStore = defineStore('chat', () => {
     if (rawSessions) {
       try {
         sessions.value = JSON.parse(rawSessions)
-        activeId.value = sessions.value[0]?.id ?? ''
-      } catch {
-        sessions.value = []
-        activeId.value = ''
-      }
+      } catch { sessions.value = [] }
     }
 
-    // 3. 兜底：如果没有会话，创建一个新的
+    // 3. 兜底
     if (!sessions.value.length) {
       const s = createSessionHelper({
         model: settings.value.defaultModel,
@@ -141,13 +93,20 @@ export const useChatStore = defineStore('chat', () => {
       activeId.value = s.id
     }
 
-    // 4. 数据清洗
+    // 4. ✨ 新增：加载上次激活的 ID
+    const savedActiveId = localStorage.getItem(LS_ACTIVE_ID_KEY)
+    // 只有当保存的 ID 在当前会话列表中存在时，才使用它
+    if (savedActiveId && sessions.value.find(s => s.id === savedActiveId)) {
+      activeId.value = savedActiveId
+    } else {
+      // 否则默认选中第一个
+      activeId.value = sessions.value[0]?.id ?? ''
+    }
+
+    // 数据清洗 (保持不变)
     sessions.value.forEach(s => {
       if (!s.messages?.length || s.messages[0].role !== 'system') {
-        s.messages = [
-          { id: crypto.randomUUID(), role: 'system', content: s.systemPrompt },
-          ...(s.messages as any ?? [])
-        ]
+        s.messages = [{ id: crypto.randomUUID(), role: 'system', content: s.systemPrompt }, ...(s.messages as any ?? [])]
       }
       s.messages = (s.messages as any[]).map(m => ({
         id: m.id || crypto.randomUUID(),
@@ -157,7 +116,6 @@ export const useChatStore = defineStore('chat', () => {
     })
   }
 
-  // --- Watchers: Persistence (持久化) ---
   const persistSessions = debounce(() => {
     localStorage.setItem(LS_SESSION_KEY, JSON.stringify(sessions.value))
   }, 300)
@@ -168,12 +126,12 @@ export const useChatStore = defineStore('chat', () => {
 
   watch(sessions, persistSessions, { deep: true })
 
+  // ✨ 新增：监听 activeId 变化并保存
+  watch(activeId, (val) => {
+    localStorage.setItem(LS_ACTIVE_ID_KEY, val)
+  })
 
-  // --- Actions: Session Management ---
-
-  function setActive(id: string) {
-    activeId.value = id
-  }
+  function setActive(id: string) { activeId.value = id }
 
   function newSession() {
     const s = createSessionHelper({
@@ -188,7 +146,6 @@ export const useChatStore = defineStore('chat', () => {
     const idx = sessions.value.findIndex(s => s.id === id)
     if (idx === -1) return
     sessions.value.splice(idx, 1)
-
     if (activeId.value === id) {
       activeId.value = sessions.value[0]?.id ?? ''
       if (!activeId.value) newSession()
