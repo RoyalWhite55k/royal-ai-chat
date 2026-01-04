@@ -1,7 +1,7 @@
 <template>
   <el-container class="app-layout">
     
-    <el-header class="app-header">
+    <!-- <el-header class="app-header">
       <div class="header-left">
         <el-button 
           v-if="$route.path !== '/chat'" 
@@ -31,31 +31,21 @@
           title="返回聊天"
         />
       </div>
-    </el-header>
-    
-    <el-main class="app-main">
-      <router-view />
-    </el-main>
+    </el-header> -->
+       <router-view />
 
   </el-container>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useChatStore } from '@/stores/chat'
-import { Setting, ArrowLeft, Close } from '@element-plus/icons-vue'
 
 const chatStore = useChatStore()
 const route = useRoute()
 const router = useRouter()
 
-const titleMap: Record<string, string> = {
-  '/chat': 'AI 对话平台',
-  '/settings': '系统设置',
-}
-
-const currentTitle = computed(() => titleMap[route.path] ?? 'AI 对话平台')
 
 onMounted(() => {
   chatStore.load()

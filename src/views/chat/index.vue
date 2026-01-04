@@ -12,7 +12,7 @@
         <el-button 
           link 
           class="toggle-btn" 
-          @click="isSidebarCollapsed = !isSidebarCollapsed"
+          @click="toggleSidebar"
         >
           <el-icon :size="20">
             <component :is="isSidebarCollapsed ? Expand : Fold" />
@@ -29,7 +29,7 @@
             block 
             @click="chat.newSession()"
           >
-            <span v-if="!isSidebarCollapsed">+ 新建会话</span>
+            <span v-if="!isSidebarCollapsed" style="white-space: nowrap;">+ 新建会话</span>
             <span v-else>+</span>
           </el-button>
         </el-tooltip>
@@ -45,12 +45,21 @@
           :class="{ active: s.id === chat.activeId }"
         >
           <div class="session-title">{{ s.title }}</div>
-          <el-dropdown trigger="click" @command="(cmd: string) => onSessionCommand(cmd, s.id)">
+          
+          <el-dropdown 
+            trigger="click" 
+            @command="(cmd: string) => onSessionCommand(cmd, s.id)"
+            popper-class="custom-dropdown-popper"
+          >
             <el-icon class="more-icon" @click.stop><MoreFilled /></el-icon>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="rename">重命名</el-dropdown-item>
-                <el-dropdown-item command="delete" class="danger-text">删除</el-dropdown-item>
+                <el-dropdown-item command="rename">
+                  <el-icon><Edit /></el-icon> 重命名
+                </el-dropdown-item>
+                <el-dropdown-item command="delete" class="danger-text">
+                  <el-icon><Delete /></el-icon> 删除
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -78,7 +87,7 @@
         </el-button>
       </div>
 
-      <div class="message-scroll-container">
+      <div class="message-scroll-container" :class="{ 'is-ready': isScrollerReady }">
         <DynamicScroller
           class="scroller"
           ref="scrollerRef"
@@ -165,6 +174,7 @@
         <span>当前会话设置</span>
         <el-icon class="close-btn" @click="showConfig = false"><Close /></el-icon>
       </div>
+      
       <div class="drawer-content">
         <el-form label-position="top" v-if="active" size="small">
           <el-form-item label="模型">
@@ -183,15 +193,16 @@
             <el-input 
               v-model="active.systemPrompt" 
               type="textarea" 
-              :rows="6" 
+              :rows="10" 
               @input="onSystemPromptInput"
             />
           </el-form-item>
         </el-form>
-        <div class="drawer-actions">
-           <el-button size="small" @click="exportMD">导出 Markdown</el-button>
-           <el-button size="small" @click="exportJSON">导出 JSON</el-button>
-        </div>
+      </div>
+
+      <div class="drawer-footer">
+         <el-button size="small" @click="exportMD">导出 Markdown</el-button>
+         <el-button size="small" @click="exportJSON">导出 JSON</el-button>
       </div>
     </div>
 
@@ -209,7 +220,7 @@
 <script setup lang="ts">
 import { 
   Fold, Expand, Delete, Position, Setting, 
-  MoreFilled, Operation, Close 
+  MoreFilled, Operation, Close, Edit 
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { exportSessionJSON, exportSessionMarkdown } from '@/utils/export'
@@ -226,7 +237,15 @@ const chat = useChatStore()
 const input = ref('')
 const streaming = ref(false)
 const showConfig = ref(false)
-const isSidebarCollapsed = ref(false)
+
+// 读取初始状态
+const isSidebarCollapsed = ref(sessionStorage.getItem('chat_sidebar_collapsed') === 'true')
+
+// 监听并保存状态
+function toggleSidebar() {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value
+  sessionStorage.setItem('chat_sidebar_collapsed', String(isSidebarCollapsed.value))
+}
 
 let controller: AbortController | null = null
 const modelOptions = ref<string[]>([])
@@ -249,7 +268,12 @@ function onSystemPromptInput() { if (active.value) chat.updateSystemPrompt(activ
 
 function clearChat() {
   if (!active.value || streaming.value) return
-  ElMessageBox.confirm('确定清空当前所有对话吗？', '提示').then(() => chat.clearMessages(active.value!.id))
+  ElMessageBox.confirm('确定清空当前所有对话吗？此操作无法撤销。', '提示', {
+    confirmButtonText: '清空',
+    cancelButtonText: '取消',
+    type: 'warning',
+    center: true
+  }).then(() => chat.clearMessages(active.value!.id))
 }
 
 async function send() {
@@ -305,18 +329,27 @@ async function send() {
 
 function stop() { controller?.abort() }
 
-const renameOpen = ref(false), renameText = ref(''), renameId = ''
+const renameOpen = ref(false), renameText = ref(''), renameId = ref('')
 function onSessionCommand(cmd: string, id: string) {
   if (cmd === 'rename') {
     const s = chat.sessions.find(x => x.id === id)
-    renameId = id
+    renameId.value = id
     renameText.value = s?.title ?? ''
     renameOpen.value = true
   } else if (cmd === 'delete') {
-    ElMessageBox.confirm('确认删除？').then(() => chat.removeSession(id))
+    ElMessageBox.confirm('确认删除该会话？', '警告', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'error',
+      center: true
+    }).then(() => chat.removeSession(id))
   }
 }
-function doRename() { chat.renameSession(renameId, renameText.value); renameOpen.value = false }
+function doRename() {
+  if (!renameId.value) return
+  chat.renameSession(renameId.value, renameText.value)
+  renameOpen.value = false
+}
 
 async function autoRenameIfNeeded(sessionId: string) {
   const s = chat.sessions.find(x => x.id === sessionId)
@@ -351,17 +384,33 @@ function exportMD() { if (active.value) exportSessionMarkdown(active.value) }
 function exportJSON() { if (active.value) exportSessionJSON(active.value) }
 
 const scrollerRef = ref<any>(null)
-function scrollToBottom() { nextTick(() => scrollerRef.value?.scrollToBottom()) }
-watch(() => activeMessages.value.length, scrollToBottom)
-watch(() => activeMessages.value.at(-1)?.content, () => { if (streaming.value) scrollToBottom() })
-watch(() => chat.activeId, scrollToBottom, { immediate: true })
+const isScrollerReady = ref(false)
+
+function scrollToBottom(smooth = false) { 
+  if (!smooth) isScrollerReady.value = false
+  nextTick(() => {
+    setTimeout(() => {
+      const scroller = scrollerRef.value
+      if (!scroller) return
+      const el = scroller.$el
+      if (el) el.style.scrollBehavior = smooth ? 'smooth' : 'auto'
+      scroller.scrollToBottom()
+      if (!smooth) requestAnimationFrame(() => isScrollerReady.value = true)
+      if (smooth && el) setTimeout(() => { el.style.scrollBehavior = '' }, 500)
+    }, 20) 
+  })
+}
+
+watch(() => activeMessages.value.at(-1)?.content, () => { if (streaming.value) scrollToBottom(true) })
+watch(() => activeMessages.value.length, (newLen, oldLen) => { if (newLen > oldLen) scrollToBottom(true) })
+watch(() => chat.activeId, () => { isScrollerReady.value = false; scrollToBottom(false) }, { immediate: true })
 </script>
 
 <style scoped lang="scss">
 /* --- 整体布局 --- */
 .chat-layout {
   display: flex;
-  height: 100%; /* 保持 100% 修复外层滚动条问题 */
+  height: 100%; 
   background-color: #fff;
   color: #333;
   overflow: hidden;
@@ -377,15 +426,12 @@ watch(() => chat.activeId, scrollToBottom, { immediate: true })
   transition: width 0.3s ease;
   flex-shrink: 0;
   position: relative; 
+  white-space: nowrap;
 
   &.is-collapsed {
     width: 64px;
-    
     .sidebar-header { justify-content: center; padding: 12px 0; }
     .action-area { padding: 0 10px; }
-    
-    /* ✨ 修复点1: 移除这里对 footer 的 padding 操作，避免高度跳动 */
-    /* .sidebar-footer { justify-content: center; padding: 12px 0; } <-- 删掉这行 */
   }
 }
 
@@ -396,7 +442,7 @@ watch(() => chat.activeId, scrollToBottom, { immediate: true })
   justify-content: space-between;
   padding: 0 16px;
   flex-shrink: 0;
-  .logo-text { font-weight: bold; font-size: 18px; color: #444; }
+  .logo-text { font-weight: bold; font-size: 18px; color: #444; white-space: nowrap; }
   .toggle-btn { color: #666; font-size: 18px; }
 }
 
@@ -404,6 +450,7 @@ watch(() => chat.activeId, scrollToBottom, { immediate: true })
   padding: 0 16px;
   margin-bottom: 12px;
   flex-shrink: 0;
+  white-space: nowrap;
   .is-icon-only { padding: 8px; width: 100%; }
 }
 
@@ -412,8 +459,6 @@ watch(() => chat.activeId, scrollToBottom, { immediate: true })
   overflow-y: auto;
   padding: 0 8px;
   margin-bottom: 60px; 
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
 }
 
 .session-group-title { font-size: 12px; color: #999; margin: 8px 8px; }
@@ -429,38 +474,29 @@ watch(() => chat.activeId, scrollToBottom, { immediate: true })
   &:hover .more-icon { display: block; &:hover { background: #ddd; } }
 }
 
-/* ✨ 修复点2: Sidebar Footer 布局丝滑化 */
 .sidebar-footer {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 50px; /* 高度绝对固定 */
+  height: 50px;
   border-top: 1px solid #eee;
   display: flex;
   align-items: center;
-  /* padding: 0 16px; <-- 删掉这行，交给内部 item 处理 */
   padding: 0; 
   background: #f7f7f8;
   
   .footer-item {
-    display: flex; 
-    align-items: center; 
-    width: 100%;
-    height: 100%; /* 撑满父容器 */
-    padding: 0 16px; /* 默认 Padding 在这里 */
-    cursor: pointer; 
-    color: #555;
-    transition: all 0.3s; /* 平滑过渡 */
-    
+    display: flex; align-items: center; width: 100%; height: 100%;
+    padding: 0 16px; cursor: pointer; color: #555; transition: all 0.3s;
+    white-space: nowrap;
     &:hover { color: #333; }
     
     .footer-text { margin-left: 8px; }
 
-    /* ✨ 当侧边栏收缩时：只修改内部对齐方式和 padding */
     .sidebar-container.is-collapsed & {
       justify-content: center;
-      padding: 0; /* 收缩时去除 padding，图标自动居中 */
+      padding: 0;
     }
   }
 }
@@ -492,6 +528,12 @@ watch(() => chat.activeId, scrollToBottom, { immediate: true })
   overflow: hidden; 
   background-color: #fff;
   position: relative;
+  opacity: 0;
+  transition: opacity 0.15s ease-in;
+}
+
+.message-scroll-container.is-ready {
+  opacity: 1;
 }
 
 .scroller { height: 100%; overflow-y: auto; }
@@ -548,11 +590,17 @@ watch(() => chat.activeId, scrollToBottom, { immediate: true })
 .input-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
 .footer-tips { text-align: center; color: #bbb; font-size: 12px; margin-top: 8px; }
 
+/* --- 3. 右侧配置抽屉 --- */
 .right-drawer {
   width: 0; border-left: 1px solid #eee; background: #fcfcfc;
   overflow: hidden; transition: width 0.3s ease; flex-shrink: 0;
   display: flex; flex-direction: column;
   &.is-open { width: 300px; }
+
+  /*  修复：右侧抽屉内部容器固定宽度，防止滑动时内部重排导致闪烁 */
+  .drawer-header, .drawer-content, .drawer-footer {
+    min-width: 300px;
+  }
 }
 
 .drawer-header {
@@ -562,4 +610,22 @@ watch(() => chat.activeId, scrollToBottom, { immediate: true })
 }
 .drawer-content { padding: 16px; flex: 1; overflow-y: auto; }
 .drawer-actions { margin-top: 24px; display: flex; gap: 10px; }
+.drawer-footer {
+  padding: 16px; border-top: 1px solid #eee; display: flex; gap: 10px; justify-content: center;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #dcdfe6; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #c0c4cc; }
+::-webkit-scrollbar-track { background: transparent; }
+</style>
+
+<style>
+.custom-dropdown-popper {
+  border-radius: 8px !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important; border: none !important;
+  .el-dropdown-menu__item {
+    border-radius: 6px; margin: 2px 4px;
+    &.danger-text { color: #f56c6c; &:hover { background-color: #fef0f0; } }
+  }
+}
 </style>

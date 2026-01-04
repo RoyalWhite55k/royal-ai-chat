@@ -11,7 +11,7 @@
       <el-form label-position="top" class="settings-form">
         
         <div class="section-title">个人偏好</div>
-        <el-form-item label="用户昵称 (How AI calls you)">
+        <el-form-item label="用户昵称">
           <el-input 
             v-model="settings.userNickname" 
             placeholder="例如：主人、老板、阿祖..." 
@@ -27,7 +27,7 @@
         <el-form-item>
           <el-radio-group v-model="settings.modelProvider">
             <el-radio-button label="local">Local (Ollama)</el-radio-button>
-            <el-radio-button label="cloud">Cloud (OpenAI/DeepSeek)</el-radio-button>
+            <el-radio-button label="cloud">Cloud</el-radio-button>
           </el-radio-group>
         </el-form-item>
 
@@ -170,14 +170,26 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+/* ✨ 修复重点：让容器占满高度并处理滚动 */
 .settings-container {
-  padding: 8px 12px;
-  max-width: 800px;
-  margin: 0 auto;
+  height: 100%;          /* 填满 router-view 的高度 */
+  overflow-y: auto;      /* 开启垂直滚动 */
+  padding: 12px;
+  background-color: #f5f7fa; /* 确保背景色统一 */
+
+  /* ✨ 补回漂亮的滚动条样式 */
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-thumb { background: #dcdfe6; border-radius: 3px; }
+  &::-webkit-scrollbar-thumb:hover { background: #c0c4cc; }
+  &::-webkit-scrollbar-track { background: transparent; }
 }
 
 .settings-card {
   border-radius: 12px;
+  /* ✨ 将居中逻辑移到这里，这样滚动条会在屏幕最右边，而不是卡片边缘 */
+  max-width: 800px;
+  margin: 0 auto;
+
   :deep(.el-card__header) {
     padding: 16px 24px;
   }
