@@ -93,7 +93,7 @@ export const useChatStore = defineStore('chat', () => {
       activeId.value = s.id
     }
 
-    // 4. ✨ 新增：加载上次激活的 ID
+    // 4.加载上次激活的 ID
     const savedActiveId = localStorage.getItem(LS_ACTIVE_ID_KEY)
     // 只有当保存的 ID 在当前会话列表中存在时，才使用它
     if (savedActiveId && sessions.value.find(s => s.id === savedActiveId)) {
@@ -103,7 +103,6 @@ export const useChatStore = defineStore('chat', () => {
       activeId.value = sessions.value[0]?.id ?? ''
     }
 
-    // 数据清洗 (保持不变)
     sessions.value.forEach(s => {
       if (!s.messages?.length || s.messages[0].role !== 'system') {
         s.messages = [{ id: crypto.randomUUID(), role: 'system', content: s.systemPrompt }, ...(s.messages as any ?? [])]
@@ -126,7 +125,7 @@ export const useChatStore = defineStore('chat', () => {
 
   watch(sessions, persistSessions, { deep: true })
 
-  // ✨ 新增：监听 activeId 变化并保存
+  // 监听 activeId 变化并保存
   watch(activeId, (val) => {
     localStorage.setItem(LS_ACTIVE_ID_KEY, val)
   })
