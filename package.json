@@ -19,6 +19,7 @@
     "element-plus": "^2.13.0",
     "highlight.js": "^11.11.1",
     "localforage": "^1.10.0",
+    "lodash": "^4.17.21",
     "lodash.debounce": "^4.0.8",
     "markdown-it": "^14.1.0",
     "pinia": "^3.0.4",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.3",
+    "@types/lodash": "^4.17.21",
     "@types/node": "^24.10.4",
     "@vitejs/plugin-vue": "^6.0.3",
     "@vue/tsconfig": "^0.8.1",

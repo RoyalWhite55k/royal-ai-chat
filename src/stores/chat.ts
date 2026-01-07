@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 // import debounce from 'lodash.debounce'
+import { debounce } from 'lodash'
 import type { ChatMessage } from '@/services/ollama'
 
 export type SessionMessage = ChatMessage & { id: string }
