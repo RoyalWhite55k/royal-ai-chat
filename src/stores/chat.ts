@@ -3,7 +3,6 @@ import { computed, ref, watch } from 'vue'
 import debounce from 'lodash.debounce'
 import type { ChatMessage } from '@/services/ollama'
 
-// ... 类型定义保持不变 ...
 export type SessionMessage = ChatMessage & { id: string }
 export type Session = {
   id: string
