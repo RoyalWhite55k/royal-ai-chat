@@ -10,7 +10,7 @@ import 'highlight.js/styles/atom-one-dark.css' // 引入代码高亮样式
 
 const props = defineProps<{ content: string }>()
 
-const md = new MarkdownIt({
+const md:any = new MarkdownIt({
   html: false, // 禁止 HTML 标签，防止 XSS 攻击
   linkify: true, // 自动识别链接
   breaks: true, // 换行符转 <br>
