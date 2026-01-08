@@ -74,7 +74,7 @@
             >
               <template #default>
                 <div style="line-height: 1.5">
-                  建议优先使用 <b>DeepSeek</b> 或 <b>SiliconFlow (硅基流动)</b> 等国内稳定服务。
+                  建议优先使用 <b><a href="https://platform.deepseek.com/" target="_blank">DeepSeek</a></b> 或 <b><a href="https://siliconflow.cn" target="_blank">SiliconFlow (硅基流动)</a></b> 等国内稳定服务。
                 </div>
               </template>
             </el-alert>
@@ -174,6 +174,38 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+  a {
+  // text-decoration: none;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+a:visited {
+  color: inherit;
+}
+
+a:hover {
+  text-decoration: none;
+  color: #165DFF;
+}
+
+a:active {
+  text-decoration: none;
+  color: inherit;
+}
+
+a:focus {
+  outline: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
 /* ✨✨✨ CSS 变量定义 (本页面独立管理) ✨✨✨ */
 :global(:root) {
   /* 浅色模式变量 */
@@ -311,4 +343,13 @@ onMounted(() => {
 .settings-container::-webkit-scrollbar-thumb { background: var(--set-scrollbar-thumb); border-radius: 3px; }
 .settings-container::-webkit-scrollbar-thumb:hover { background: #c0c4cc; }
 .settings-container::-webkit-scrollbar-track { background: var(--set-scrollbar-bg); }
+
+.link-colorful {
+  color: #333;
+}
+
+.link-colorful:hover {
+  color: #165DFF;
+  font-weight: 500;
+}
 </style>
