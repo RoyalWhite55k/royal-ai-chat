@@ -29,18 +29,18 @@ export type AppSettings = {
 
 const LS_SESSION_KEY = 'royal-ai-chat:sessions'
 const LS_SETTINGS_KEY = 'royal-ai-chat:settings'
-const LS_ACTIVE_ID_KEY = 'royal-ai-chat:active-id' // ✨ 新增：激活ID的存储Key
+const LS_ACTIVE_ID_KEY = 'royal-ai-chat:active-id'
 
 const defaultSettings: AppSettings = {
-  userNickname: 'User',
-  modelProvider: 'local',
+  userNickname: '阿祖',
+  modelProvider: 'cloud',
   ollamaUrl: '/ollama',
-  defaultModel: 'qwen2.5:3b',
+  defaultModel: '',
   cloudBaseUrl: 'https://api.deepseek.com',
   cloudApiKey: '',
-  cloudModelName: 'deepseek-chat',
+  cloudModelName: '',
   defaultTemperature: 0.7,
-  defaultSystemPrompt: '你是一个有帮助的助手。'
+  defaultSystemPrompt: '你是一个全知全能的助手。'
 }
 
 function now() { return Date.now() }
@@ -67,7 +67,7 @@ export const useChatStore = defineStore('chat', () => {
   const activeSession = computed(() => sessions.value.find(s => s.id === activeId.value) || null)
 
   function load() {
-    // 1. 加载设置
+    // 加载设置
     const rawSettings = localStorage.getItem(LS_SETTINGS_KEY)
     if (rawSettings) {
       try {
@@ -75,7 +75,7 @@ export const useChatStore = defineStore('chat', () => {
       } catch (e) { console.error(e) }
     }
 
-    // 2. 加载会话
+    // 加载会话
     const rawSessions = localStorage.getItem(LS_SESSION_KEY)
     if (rawSessions) {
       try {
@@ -83,7 +83,6 @@ export const useChatStore = defineStore('chat', () => {
       } catch { sessions.value = [] }
     }
 
-    // 3. 兜底
     if (!sessions.value.length) {
       const s = createSessionHelper({
         model: settings.value.defaultModel,
@@ -93,7 +92,7 @@ export const useChatStore = defineStore('chat', () => {
       activeId.value = s.id
     }
 
-    // 4.加载上次激活的 ID
+    // 加载上次激活的 ID
     const savedActiveId = localStorage.getItem(LS_ACTIVE_ID_KEY)
     // 只有当保存的 ID 在当前会话列表中存在时，才使用它
     if (savedActiveId && sessions.value.find(s => s.id === savedActiveId)) {
