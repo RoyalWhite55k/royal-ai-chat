@@ -4,7 +4,7 @@
     <div class="sidebar-container" :class="{ 'is-collapsed': isSidebarCollapsed }">
       <div class="sidebar-header">
         <div class="logo-area" v-show="!isSidebarCollapsed">
-          <span class="logo-text">AI Chat</span>
+          <span class="logo-text none-select">AI Chat</span>
         </div>
         <el-button link class="toggle-btn" @click="toggleSidebar">
           <el-icon :size="20"><component :is="isSidebarCollapsed ? Expand : Fold" /></el-icon>
@@ -21,9 +21,9 @@
       </div>
 
       <div class="session-list-scroll" v-show="!isSidebarCollapsed">
-        <div class="session-group-title">最近会话</div>
+        <div class="session-group-title none-select">最近会话</div>
         <div v-for="s in chatStore.sessions" :key="s.id" @click="chatStore.setActive(s.id)" class="session-item" :class="{ active: s.id === chatStore.activeId }">
-          <div class="session-title">{{ s.title }}</div>
+          <div class="session-title none-select">{{ s.title }}</div>
           <el-dropdown trigger="click" @command="(cmd: string) => onSessionCommand(cmd, s.id)" popper-class="custom-dropdown-popper">
             <el-icon class="more-icon" @click.stop><MoreFilled /></el-icon>
             <template #dropdown>
@@ -42,14 +42,14 @@
             <el-icon :size="20">
               <component :is="isDark ? Sunny : Moon" />
             </el-icon>
-            <span v-if="!isSidebarCollapsed" class="footer-text">{{ isDark ? '亮色模式' : '深色模式' }}</span>
+            <span v-if="!isSidebarCollapsed" class="footer-text none-select">{{ isDark ? '亮色模式' : '深色模式' }}</span>
           </div>
         </el-tooltip>
 
         <el-tooltip content="全局设置" placement="right" :disabled="!isSidebarCollapsed">
           <div class="footer-item" @click="router.push('/settings')">
             <el-icon :size="20"><Setting /></el-icon>
-            <span v-if="!isSidebarCollapsed" class="footer-text">设置</span>
+            <span v-if="!isSidebarCollapsed" class="footer-text none-select">设置</span>
           </div>
         </el-tooltip>
       </div>
@@ -58,7 +58,7 @@
     <div class="main-chat-area">
       <div class="chat-header">
         <div class="header-info">
-          <span class="model-tag">{{ chatStore.settings.modelProvider === 'cloud' ? 'Cloud' : active?.model }}</span>
+          <span class="model-tag none-select">{{ chatStore.settings.modelProvider === 'cloud' ? 'Cloud' : active?.model }}</span>
           <span class="chat-title">{{ active?.title || '新会话' }}</span>
         </div>
         <el-button text circle @click="showConfig = !showConfig">
@@ -73,7 +73,7 @@
               <div class="message-row" :class="item.role">
                 <div class="message-content-box">
                   <div class="avatar-col">
-                    <div class="avatar-circle">{{ item.role === 'user' ? 'ME' : 'AI' }}</div>
+                    <div class="avatar-circle none-select">{{ item.role === 'user' ? 'ME' : 'AI' }}</div>
                   </div>
                   <div class="text-col">
                     <div v-if="item.role === 'assistant'" class="ai-content-wrapper">
@@ -136,19 +136,19 @@
                </div>
             </div>
           </div>
-          <div class="footer-tips">AI 生成的内容可能不准确，请核实重要信息。</div>
+          <div class="footer-tips none-select">AI 生成的内容可能不准确，请核实重要信息。</div>
         </div>
       </div>
     </div>
 
     <div class="right-drawer" :class="{ 'is-open': showConfig }">
       <div class="drawer-header">
-        <span>当前会话设置</span>
+        <span class="none-select">当前会话设置</span>
         <el-icon class="close-btn" @click="showConfig = false"><Close /></el-icon>
       </div>
       <div class="drawer-content">
         <el-form label-position="top" v-if="active" size="small">
-          <el-form-item label="模型">
+          <el-form-item class="none-select" label="模型">
             <template v-if="chatStore.settings.modelProvider === 'local'">
               <el-select v-model="active.model" style="width:100%" @change="onModelChange">
                 <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
@@ -158,7 +158,7 @@
                <el-input :model-value="chatStore.settings.cloudModelName" disabled><template #prefix>☁️</template></el-input>
             </template>
           </el-form-item>
-          <el-form-item label="System Prompt">
+          <el-form-item class="none-select" label="System Prompt">
             <el-input v-model="active.systemPrompt" type="textarea" :rows="10" @input="onSystemPromptInput"/>
           </el-form-item>
         </el-form>
@@ -1054,4 +1054,11 @@ html.dark .el-popper__arrow::before {
 }
 .el-dropdown-menu__item.danger-text { color: #f56c6c !important; }
 .el-dropdown-menu__item.danger-text:hover { background-color: #fef0f0; }
+
+.none-select {
+  -webkit-user-select: none; /* Safari */
+  -moz-user-select: none;    /* Firefox */
+  -ms-user-select: none;     /* IE10+/Edge */
+  user-select: none;         /* Standard */
+}
 </style>

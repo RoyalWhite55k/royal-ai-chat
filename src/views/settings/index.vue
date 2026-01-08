@@ -12,26 +12,26 @@
       <el-card class="settings-card" shadow="never">
         <template #header>
           <div class="card-header">
-            <span class="title">系统设置</span>
+            <span class="title none-select">系统设置</span>
           </div>
         </template>
 
         <el-form :model="settings" label-position="top" class="settings-form">
           
-          <div class="section-title">个人偏好</div>
-          <el-form-item label="用户昵称">
+          <div class="section-title none-select">个人偏好</div>
+          <el-form-item class="none-select" label="用户昵称">
             <el-input 
               v-model="settings.userNickname" 
               placeholder="例如：主人、老板、阿祖..." 
               maxlength="20"
               show-word-limit
             />
-            <div class="tips">AI 在对话中可能会使用这个名字来称呼你。</div>
+            <div class="tips none-select">AI 在对话中可能会使用这个名字来称呼你。</div>
           </el-form-item>
 
           <el-divider />
 
-          <div class="section-title">模型服务商</div>
+          <div class="section-title none-select">模型服务商</div>
           <el-form-item>
             <el-radio-group v-model="settings.modelProvider" class="provider-group">
               <el-radio-button label="local">Local (Ollama)</el-radio-button>
@@ -79,14 +79,14 @@
               </template>
             </el-alert>
 
-            <el-form-item label="API Base URL">
+            <el-form-item class="none-select" label="API Base URL">
               <el-input v-model="settings.cloudBaseUrl" placeholder="https://api.deepseek.com">
                 <template #prefix>🌐</template>
               </el-input>
               <div class="tips">例如: https://api.deepseek.com</div>
             </el-form-item>
 
-            <el-form-item label="API Key">
+            <el-form-item class="none-select" label="API Key">
               <el-input 
                 v-model="settings.cloudApiKey" 
                 type="password" 
@@ -95,10 +95,10 @@
               >
                 <template #prefix>🔑</template>
               </el-input>
-              <div class="tips">密钥仅存储在本地，不会上传。</div>
+              <div class="tips none-select">密钥仅存储在本地，不会上传。</div>
             </el-form-item>
 
-            <el-form-item label="云端模型名称 (Model Name)">
+            <el-form-item class="none-select" label="云端模型名称 (Model Name)">
               <el-input v-model="settings.cloudModelName" placeholder="例如: deepseek-chat, gpt-4o" />
                <div class="tips">请填写服务商提供的具体模型 ID。</div>
             </el-form-item>
@@ -106,9 +106,9 @@
 
           <el-divider />
 
-          <div class="section-title">参数微调</div>
+          <div class="section-title none-select">参数微调</div>
           
-          <el-form-item label="默认随机性 (Temperature)">
+          <el-form-item class="none-select" label="默认随机性 (Temperature)">
             <div class="slider-block">
               <el-slider 
                 v-model="settings.defaultTemperature" 
@@ -123,7 +123,7 @@
             </div>
           </el-form-item>
 
-          <el-form-item label="全局系统预设 (System Prompt)">
+          <el-form-item class="none-select" label="全局系统预设 (System Prompt)">
             <el-input 
               v-model="settings.defaultSystemPrompt" 
               type="textarea" 
@@ -346,4 +346,11 @@ onMounted(() => {
 
   .link-colorful { color: #333; }
   .link-colorful:hover { color: #165DFF; font-weight: 500; }
+
+  none-select {
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none;    /* Firefox */
+    -ms-user-select: none;     /* IE10+/Edge */
+    user-select: none;         /* Standard */
+  }
 </style>
