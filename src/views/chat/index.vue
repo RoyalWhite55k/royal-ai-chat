@@ -342,8 +342,6 @@ async function send() {
   const text = input.value.trim()
   if (!text || streaming.value || !active.value) return
   // 在发送前校验模型配置：
-  // - 云端必须同时配置 cloudModelName、cloudBaseUrl、cloudApiKey
-  // - 本地必须配置会话 model 或 settings.defaultModel
   const settings = chatStore.settings
   if (settings.modelProvider === 'cloud') {
     const missing: string[] = []
