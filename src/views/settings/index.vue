@@ -174,182 +174,176 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+  /* 基础 A 标签样式 */
   a {
-  // text-decoration: none;
-  color: inherit;
-  -webkit-tap-highlight-color: transparent;
-  outline: none;
-  cursor: pointer;
-  box-sizing: border-box;
-}
-
-a:visited {
-  color: inherit;
-}
-
-a:hover {
-  text-decoration: none;
-  color: #165DFF;
-}
-
-a:active {
-  text-decoration: none;
-  color: inherit;
-}
-
-a:focus {
-  outline: none;
-}
-
-*,
-*::before,
-*::after {
-  box-sizing: inherit;
-}
-/* ✨✨✨ CSS 变量定义 (本页面独立管理) ✨✨✨ */
-:global(:root) {
-  /* 浅色模式变量 */
-  --set-bg-page: #f5f7fa;      /* 页面大背景：浅灰 */
-  --set-bg-card: #ffffff;      /* 卡片背景：纯白 */
-  --set-bg-header: #ffffff;    /* 导航栏背景：纯白 */
-  
-  --set-text-main: #303133;    /* 主文字 */
-  --set-text-sub: #909399;     /* 次要文字 */
-  
-  --set-border-color: #ebeef5; /* 浅色分割线 */
-  --set-card-border: #e4e7ed;  /* 卡片边框 */
-  
-  --set-scrollbar-bg: transparent;
-  --set-scrollbar-thumb: #dcdfe6;
-}
-
-:global(html.dark) {
-  /* 🌙 深色模式变量 - 强制生效 */
-  --set-bg-page: #121212;      /* 页面大背景：极黑 */
-  --set-bg-card: #1e1e1e;      /* 卡片背景：深灰 */
-  --set-bg-header: #1e1e1e;    /* 导航栏背景：深灰 */
-  
-  --set-text-main: #ffffff;    /* 主文字：纯白 */
-  --set-text-sub: #a0a0a0;     /* 次要文字：亮灰 */
-  
-  --set-border-color: #333333; /* 深色分割线 */
-  --set-card-border: #333333;  /* 卡片边框 */
-  
-  --set-scrollbar-thumb: #444;
-}
-
-/* --- 页面布局 --- */
-.settings-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--set-bg-page); /* ✨ 使用变量 */
-  overflow-y: auto; /* 页面级滚动 */
-  transition: background-color 0.3s;
-}
-
-/* --- 顶部导航 --- */
-.settings-nav {
-  height: 50px;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  background-color: var(--set-bg-header); /* ✨ 使用变量 */
-  border-bottom: 1px solid var(--set-border-color); /* ✨ 使用变量 */
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  
-  /* 导航栏文字颜色跟随 */
-  .el-button { color: var(--set-text-main); }
-  span { color: var(--set-text-main); }
-}
-
-/* --- 内容包裹 --- */
-.settings-content-wrapper {
-  padding: 20px;
-  display: flex;
-  justify-content: center;
-}
-
-/* --- 卡片样式 --- */
-.settings-card {
-  width: 100%;
-  max-width: 800px;
-  border-radius: 12px;
-  
-  background-color: var(--set-bg-card); /* ✨ 使用变量 */
-  border: 1px solid var(--set-card-border); /* ✨ 使用变量 */
-  
-  :deep(.el-card__header) {
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--set-border-color); /* ✨ 使用变量 */
+    color: inherit;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+    cursor: pointer;
+    box-sizing: border-box;
   }
-  
-  :deep(.el-card__body) {
-    padding: 24px;
-    /* 这里不需要再写 background，默认透出 card 的背景 */
+
+  a:visited { color: inherit; }
+  a:hover { text-decoration: none; color: #165DFF; }
+  a:active { text-decoration: none; color: inherit; }
+  a:focus { outline: none; }
+
+  *, *::before, *::after {
+    box-sizing: inherit;
   }
-}
 
-.card-header {
-  display: flex;
-  flex-direction: column;
-}
-
-.settings-form {
-  .title { 
-    font-size: 18px; font-weight: 600; display: block; margin-bottom: 4px; 
-    color: var(--set-text-main); /* ✨ 使用变量 */
+  /* ✨✨✨ CSS 变量定义 (本页面独立管理) ✨✨✨ */
+  :global(:root) {
+    /* 浅色模式变量 */
+    --set-bg-page: #f5f7fa;      /* 页面大背景：浅灰 */
+    --set-bg-card: #ffffff;      /* 卡片背景：纯白 */
+    --set-bg-header: #ffffff;    /* 导航栏背景：纯白 */
+    
+    --set-text-main: #303133;    /* 主文字 */
+    --set-text-sub: #909399;     /* 次要文字 */
+    
+    --set-border-color: #ebeef5; /* 浅色分割线 */
+    --set-card-border: #e4e7ed;  /* 卡片边框 */
+    
+    --set-scrollbar-bg: transparent;
+    --set-scrollbar-thumb: #dcdfe6;
   }
-  .subtitle { 
-    font-size: 12px; display: block; 
-    color: var(--set-text-sub); /* ✨ 使用变量 */
+
+  :global(html.dark) {
+    /* 🌙 深色模式变量 */
+    --set-bg-page: #121212;      
+    --set-bg-card: #1e1e1e;      
+    --set-bg-header: #1e1e1e;    
+    
+    --set-text-main: #ffffff;    
+    --set-text-sub: #a0a0a0;     
+    
+    --set-border-color: #333333; 
+    --set-card-border: #333333;  
+    
+    --set-scrollbar-thumb: #444;
   }
-}
 
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 16px;
-  border-left: 3px solid var(--el-color-primary);
-  padding-left: 8px;
-  color: var(--set-text-main); /* ✨ 使用变量 */
-}
+  /* --- 页面布局 --- */
+  .settings-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--set-bg-page);
+    overflow-y: auto; 
+    overflow-x: hidden; /* 防止页面级横向滚动 */
+    transition: background-color 0.3s;
+  }
 
-.provider-group {
-  width: 100%;
-  :deep(.el-radio-button__inner) { width: 100%; padding: 10px 20px; }
-  :deep(.el-radio-button) { flex: 1; display: flex; }
-}
+  /* --- 顶部导航 --- */
+  .settings-nav {
+    height: 50px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    background-color: var(--set-bg-header);
+    border-bottom: 1px solid var(--set-border-color);
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    
+    .el-button { color: var(--set-text-main); }
+    span { color: var(--set-text-main); }
+  }
 
-.tips {
-  font-size: 12px;
-  line-height: 1.4;
-  margin-top: 6px;
-  color: var(--set-text-sub); /* ✨ 使用变量 */
-}
+  /* --- 内容包裹 --- */
+  .settings-content-wrapper {
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    width: 100%; /* 确保不溢出 */
+    box-sizing: border-box; /* 关键：padding包含在宽度内 */
+  }
 
-.slider-block {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  :deep(.el-slider) { flex: 1; margin-right: 12px; }
-}
+  /* --- 卡片样式 --- */
+  .settings-card {
+    width: 100%;
+    max-width: 800px;
+    /* ✨ 修复：这里可以移除 max-width 的 min 计算，因为外层 wrapper 已经控制了 padding */
+    box-sizing: border-box;
+    overflow: hidden; /* 防止子元素溢出圆角 */
+    border-radius: 12px;
+    
+    background-color: var(--set-bg-card);
+    border: 1px solid var(--set-card-border);
+    
+    :deep(.el-card__header) {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--set-border-color);
+    }
+    
+    :deep(.el-card__body) {
+      padding: 24px;
+      /* 这里加 overflow 可以防止内部某些组件（如 slider）溢出 */
+      overflow: hidden; 
+    }
+  }
 
-/* 滚动条美化 */
-.settings-container::-webkit-scrollbar { width: 6px; }
-.settings-container::-webkit-scrollbar-thumb { background: var(--set-scrollbar-thumb); border-radius: 3px; }
-.settings-container::-webkit-scrollbar-thumb:hover { background: #c0c4cc; }
-.settings-container::-webkit-scrollbar-track { background: var(--set-scrollbar-bg); }
+  .card-header {
+    display: flex;
+    flex-direction: column;
+  }
 
-.link-colorful {
-  color: #333;
-}
+  .settings-form {
+    padding: 0; /* 移除额外的 padding，交给 card body */
+    
+    .title { 
+      font-size: 18px; font-weight: 600; display: block; margin-bottom: 4px; 
+      color: var(--set-text-main);
+    }
+    .subtitle { 
+      font-size: 12px; display: block; 
+      color: var(--set-text-sub);
+    }
+  }
 
-.link-colorful:hover {
-  color: #165DFF;
-  font-weight: 500;
-}
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    border-left: 3px solid var(--el-color-primary);
+    padding-left: 8px;
+    color: var(--set-text-main);
+  }
+
+  .provider-group {
+    width: 100%;
+    :deep(.el-radio-button__inner) { width: 100%; padding: 10px 20px; }
+    :deep(.el-radio-button) { flex: 1; display: flex; }
+  }
+
+  .tips {
+    font-size: 12px;
+    line-height: 1.4;
+    margin-top: 6px;
+    color: var(--set-text-sub);
+  }
+
+  .slider-block {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    /* ✨ 修复：给 slider 右侧留一点 buffer，防止滑块阴影溢出 */
+    padding-right: 5px; 
+    
+    :deep(.el-slider) { 
+      flex: 1; 
+      margin-right: 12px; 
+    }
+  }
+
+  /* 滚动条美化 */
+  .settings-container::-webkit-scrollbar { width: 6px; }
+  .settings-container::-webkit-scrollbar-thumb { background: var(--set-scrollbar-thumb); border-radius: 3px; }
+  .settings-container::-webkit-scrollbar-thumb:hover { background: #c0c4cc; }
+  .settings-container::-webkit-scrollbar-track { background: var(--set-scrollbar-bg); }
+
+  .link-colorful { color: #333; }
+  .link-colorful:hover { color: #165DFF; font-weight: 500; }
 </style>
