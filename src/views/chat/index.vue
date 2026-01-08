@@ -206,9 +206,16 @@ const chatStore = useChatStore()
 const input = ref('')
 const streaming = ref(false)
 const showConfig = ref(false)
-const isSidebarCollapsed = ref(sessionStorage.getItem('chat_sidebar_collapsed') === 'true')
 
-// 深色模式逻辑 
+const storedSidebarState = sessionStorage.getItem('chat_sidebar_collapsed')
+const isMobile = window.innerWidth < 768
+
+const initSidebarState = storedSidebarState !== null 
+  ? storedSidebarState === 'true' 
+  : isMobile
+
+const isSidebarCollapsed = ref(initSidebarState)
+
 const isDark = ref(false)
 
 function initTheme() {
@@ -238,7 +245,6 @@ function toggleTheme() {
 onMounted(() => {
   initTheme()
 })
-// 深色模式逻辑结束 
 
 const isRecording = ref(false)
 const currentSpeakingText = ref('')
@@ -504,9 +510,7 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
 </script>
 
 <style scoped lang="scss">
-/* 全局变量定义 */
 :global(:root) {
-  /* 浅色模式 */
   --bg-app: #fff;
   
   --bg-sidebar: #f2f3f5; 
@@ -546,7 +550,6 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   --recording-shadow: rgba(103, 194, 58, 0.2);
 }
 
-/* 深色模式 */
 :global(html.dark) {
   --bg-app: #121212;
   --bg-sidebar: #1e1e1e;
@@ -585,7 +588,6 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   --recording-bg: #1a2e1a; 
   --recording-shadow: rgba(103, 194, 58, 0.1);
 
-  /* Element Plus 适配 */
   --el-bg-color: #1e1e1e;
   --el-bg-color-page: #121212;
   --el-bg-color-overlay: #2a2a2a;
@@ -600,18 +602,16 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   --el-fill-color-light: #333333;
 }
 
-/* 布局 */
 .chat-layout {
   display: flex;
   height: 100%;
   background-color: var(--bg-app);
   color: var(--text-main);
   overflow: hidden;
-  position: relative; /* 为遮罩层定位 */
+  position: relative; 
   transition: background-color 0.3s, color 0.3s;
 }
 
-/* 侧边栏 */
 .sidebar-container {
   width: 260px; 
   background-color: var(--bg-sidebar); 
@@ -622,7 +622,7 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   flex-shrink: 0; 
   position: relative; 
   white-space: nowrap;
-  z-index: 1001; /* 保证在遮罩层之上 */
+  z-index: 1001; 
   
   &.is-collapsed {
     width: 64px;
@@ -675,7 +675,6 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   margin: 8px 8px;
 }
 
-/* Session Item */
 .session-item {
   display: flex;
   align-items: center;
@@ -750,7 +749,6 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
     .sidebar-container.is-collapsed .footer-item { justify-content: center; padding: 0; }
 }
 
-/* 主聊天区 */
 .main-chat-area {
   flex: 1;
   display: flex;
@@ -771,7 +769,6 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   z-index: 10;
 
-  /* 默认隐藏移动端菜单按钮 */
   .mobile-menu-btn {
     display: none;
     margin-right: 12px;
@@ -783,7 +780,7 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
     display: flex;
     align-items: center;
     gap: 8px;
-    overflow: hidden; /* 防止移动端标题溢出 */
+    overflow: hidden; 
   }
   .model-tag {
     font-size: 12px;
@@ -867,7 +864,6 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   text-align: left;
 }
 
-/* AI 气泡样式 */
 .ai-content-wrapper {
   position: relative;
   group: ai-bubble;
@@ -909,7 +905,6 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   &:hover .ai-actions { opacity: 1; }
 }
 
-/* 输入框 */
 .input-area-wrapper {
   padding: 0 20px 24px 20px;
   display: flex;
@@ -964,7 +959,6 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   }
 .footer-tips { text-align: center; color: #bbb; font-size: 12px; margin-top: 8px; }
 
-/* 图标微调 */
 .action-btn {
   font-size: 20px !important;
   padding: 8px !important;
@@ -980,7 +974,6 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
 }
 .action-btn-send .el-icon { font-size: 18px !important; }
 
-/* 录音按钮动画 */
 .recording-btn {
   color: #67c23a !important;
   animation: pulse 1.5s infinite;
@@ -1045,35 +1038,32 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
 }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* 默认隐藏遮罩层 */
 .mobile-overlay {
   display: none;
 }
 
-/* 媒体查询：移动端适配 (小于 768px) */
 @media (max-width: 768px) {
   
   .sidebar-container {
-    position: absolute;
+    position: absolute; 
     top: 0;
     left: 0;
     height: 100%;
-    z-index: 2000;
-    width: 260px;
+    z-index: 2000; 
+    width: 260px; 
     transform: translateX(0);
     box-shadow: 2px 0 12px rgba(0,0,0,0.1);
   }
 
   .sidebar-container.is-collapsed {
-    width: 260px;
+    width: 260px; 
     transform: translateX(-100%);
   }
-  /* 隐藏侧边栏的折叠按钮 */
+  
   .sidebar-container .toggle-btn {
     display: none;
   }
 
-  /* 显示顶部导航栏的汉堡菜单按钮 */
   .chat-header .mobile-menu-btn {
     display: block;
   }
@@ -1082,7 +1072,6 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
     padding: 0 12px;
   }
 
-  /* 遮罩层逻辑 */
   .mobile-overlay {
     display: block;
     position: fixed;
@@ -1091,33 +1080,51 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
     right: 0;
     bottom: 0;
     background: rgba(0,0,0,0.5);
-    z-index: 1500; /* 在侧边栏之下，内容之上 */
+    z-index: 1500; 
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s;
   }
-  /* 当侧边栏打开时 (!isSidebarCollapsed)，显示遮罩 */
   .mobile-overlay.is-show {
     opacity: 1;
     pointer-events: auto;
   }
 
-  /* 右侧抽屉全屏覆盖 */
+  .input-area-wrapper {
+    padding: 0 10px 60px 10px;
+  }
+  
+  .user-bubble, .ai-content {
+    max-width: 100%;
+  }
+
+  .sidebar-footer {
+    height: auto; 
+    padding-top: 15px;
+    padding-bottom: 40px; 
+  }
+  .session-list-scroll {
+    margin-bottom: 100px; 
+  }
+
   .right-drawer.is-open {
     width: 100%;
     position: absolute;
     right: 0;
+    top: 0; 
+    height: 100%; 
     z-index: 2000;
   }
-  
-  /* 输入框两侧留白减小 */
-  .input-area-wrapper {
-    padding: 0 10px 24px 10px;
+
+  .right-drawer .drawer-content,
+  .right-drawer .drawer-header,
+  .right-drawer .drawer-footer {
+    min-width: 100vw; 
+    box-sizing: border-box; 
   }
-  
-  /* 消息气泡最大宽度调整 */
-  .user-bubble, .ai-content {
-    max-width: 100%;
+
+  .drawer-footer {
+    padding-bottom: 50px; 
   }
 }
 
