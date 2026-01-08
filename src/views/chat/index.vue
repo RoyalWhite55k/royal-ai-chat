@@ -341,13 +341,21 @@ function clearChat() {
 async function send() {
   const text = input.value.trim()
   if (!text || streaming.value || !active.value) return
-  // 在发送前校验模型配置：云端需要 cloudModelName，本地需要 session.model 或 defaultModel
+  // 在发送前校验模型配置：
+  // - 云端必须同时配置 cloudModelName、cloudBaseUrl、cloudApiKey
+  // - 本地必须配置会话 model 或 settings.defaultModel
   const settings = chatStore.settings
-  if (settings.modelProvider === 'cloud' && !(settings.cloudModelName || '').trim()) {
-    ElMessageBox.confirm('当前未配置云端模型名称，发送前请在设置页填写模型名，是否前往设置？', '缺少模型', {
-      confirmButtonText: '去设置', cancelButtonText: '取消', type: 'warning', center: true
-    }).then(() => router.push('/settings'))
-    return
+  if (settings.modelProvider === 'cloud') {
+    const missing: string[] = []
+    if (!(settings.cloudModelName || '').trim()) missing.push('模型名称')
+    if (!(settings.cloudBaseUrl || '').trim()) missing.push('API Base URL')
+    if (!(settings.cloudApiKey || '').trim()) missing.push('API Key')
+    if (missing.length) {
+      ElMessageBox.confirm(`缺少必填配置：${missing.join('、')}，发送前请在设置页填写，是否前往设置？`, '缺少配置', {
+        confirmButtonText: '去设置', cancelButtonText: '取消', type: 'warning', center: true
+      }).then(() => router.push('/settings'))
+      return
+    }
   }
   if (settings.modelProvider === 'local') {
     const curModel = active.value.model || settings.defaultModel || ''
