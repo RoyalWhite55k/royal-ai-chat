@@ -1,6 +1,8 @@
 <template>
   <div class="chat-layout">
     
+    <div class="mobile-overlay" :class="{ 'is-show': !isSidebarCollapsed }" @click="toggleSidebar"></div>
+
     <div class="sidebar-container" :class="{ 'is-collapsed': isSidebarCollapsed }">
       <div class="sidebar-header">
         <div class="logo-area" v-show="!isSidebarCollapsed">
@@ -57,6 +59,10 @@
 
     <div class="main-chat-area">
       <div class="chat-header">
+        <div class="mobile-menu-btn" @click="toggleSidebar">
+          <el-icon :size="24"><Expand /></el-icon>
+        </div>
+
         <div class="header-info">
           <span class="model-tag none-select">{{ chatStore.settings.modelProvider === 'cloud' ? 'Cloud' : active?.model }}</span>
           <span class="chat-title">{{ active?.title || '新会话' }}</span>
@@ -341,7 +347,6 @@ function clearChat() {
 async function send() {
   const text = input.value.trim()
   if (!text || streaming.value || !active.value) return
-  // 在发送前校验模型配置：
   const settings = chatStore.settings
   if (settings.modelProvider === 'cloud') {
     const missing: string[] = []
@@ -602,6 +607,7 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   background-color: var(--bg-app);
   color: var(--text-main);
   overflow: hidden;
+  position: relative; /* 为遮罩层定位 */
   transition: background-color 0.3s, color 0.3s;
 }
 
@@ -612,10 +618,12 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   border-right: 1px solid var(--border-color); 
   display: flex; 
   flex-direction: column;
-  transition: width 0.3s ease, background-color 0.3s; 
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   flex-shrink: 0; 
   position: relative; 
   white-space: nowrap;
+  z-index: 1001; /* 保证在遮罩层之上 */
+  
   &.is-collapsed {
     width: 64px;
     .sidebar-header { 
@@ -667,7 +675,7 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   margin: 8px 8px;
 }
 
-/* ✨✨✨ 修复部分：列表项防抖动 ✨✨✨ */
+/* Session Item */
 .session-item {
   display: flex;
   align-items: center;
@@ -763,10 +771,19 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   z-index: 10;
 
+  /* 默认隐藏移动端菜单按钮 */
+  .mobile-menu-btn {
+    display: none;
+    margin-right: 12px;
+    cursor: pointer;
+    color: var(--text-secondary);
+  }
+
   .header-info {
     display: flex;
     align-items: center;
     gap: 8px;
+    overflow: hidden; /* 防止移动端标题溢出 */
   }
   .model-tag {
     font-size: 12px;
@@ -774,11 +791,15 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
     padding: 2px 6px;
     border-radius: 4px;
     color: var(--text-secondary);
+    white-space: nowrap;
   }
   .chat-title {
     font-weight: 600;
     font-size: 16px;
     color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 .message-scroll-container {
@@ -1023,24 +1044,81 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
   background: var(--scrollbar-hover);
 }
 ::-webkit-scrollbar-track { background: transparent; }
-</style>
 
-<style>
-/* 下拉菜单适配 */
-html.dark .custom-dropdown-popper {
-  background-color: #1e1e1e !important;
-  border: 1px solid #333 !important;
+/* 默认隐藏遮罩层 */
+.mobile-overlay {
+  display: none;
 }
-html.dark .custom-dropdown-popper .el-dropdown-menu__item {
-  color: #e0e0e0 !important;
-}
-html.dark .custom-dropdown-popper .el-dropdown-menu__item:hover {
-  background-color: #2a2a2a !important;
-  color: #fff !important;
-}
-html.dark .el-popper__arrow::before {
-  background-color: #1e1e1e !important;
-  border-color: #333 !important;
+
+/* 媒体查询：移动端适配 (小于 768px) */
+@media (max-width: 768px) {
+  
+  .sidebar-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    z-index: 2000;
+    width: 260px;
+    transform: translateX(0);
+    box-shadow: 2px 0 12px rgba(0,0,0,0.1);
+  }
+
+  .sidebar-container.is-collapsed {
+    width: 260px;
+    transform: translateX(-100%);
+  }
+  /* 隐藏侧边栏的折叠按钮 */
+  .sidebar-container .toggle-btn {
+    display: none;
+  }
+
+  /* 显示顶部导航栏的汉堡菜单按钮 */
+  .chat-header .mobile-menu-btn {
+    display: block;
+  }
+  
+  .chat-header {
+    padding: 0 12px;
+  }
+
+  /* 遮罩层逻辑 */
+  .mobile-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1500; /* 在侧边栏之下，内容之上 */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  /* 当侧边栏打开时 (!isSidebarCollapsed)，显示遮罩 */
+  .mobile-overlay.is-show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* 右侧抽屉全屏覆盖 */
+  .right-drawer.is-open {
+    width: 100%;
+    position: absolute;
+    right: 0;
+    z-index: 2000;
+  }
+  
+  /* 输入框两侧留白减小 */
+  .input-area-wrapper {
+    padding: 0 10px 24px 10px;
+  }
+  
+  /* 消息气泡最大宽度调整 */
+  .user-bubble, .ai-content {
+    max-width: 100%;
+  }
 }
 
 .custom-dropdown-popper {
