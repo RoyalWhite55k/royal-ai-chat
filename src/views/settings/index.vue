@@ -192,7 +192,7 @@ onMounted(() => {
     box-sizing: inherit;
   }
 
-  /* ✨✨✨ CSS 变量定义 (本页面独立管理) ✨✨✨ */
+  /* CSS 变量定义 (本页面独立管理) */
   :global(:root) {
     /* 浅色模式变量 */
     --set-bg-page: #f5f7fa;      /* 页面大背景：浅灰 */
@@ -210,7 +210,7 @@ onMounted(() => {
   }
 
   :global(html.dark) {
-    /* 🌙 深色模式变量 */
+    /* 深色模式变量 */
     --set-bg-page: #121212;      
     --set-bg-card: #1e1e1e;      
     --set-bg-header: #1e1e1e;    
@@ -265,7 +265,7 @@ onMounted(() => {
   .settings-card {
     width: 100%;
     max-width: 800px;
-    /* ✨ 修复：这里可以移除 max-width 的 min 计算，因为外层 wrapper 已经控制了 padding */
+    /* 修复：这里可以移除 max-width 的 min 计算，因为外层 wrapper 已经控制了 padding */
     box-sizing: border-box;
     overflow: hidden; /* 防止子元素溢出圆角 */
     border-radius: 12px;
@@ -329,7 +329,7 @@ onMounted(() => {
     display: flex;
     align-items: center;
     width: 100%;
-    /* ✨ 修复：给 slider 右侧留一点 buffer，防止滑块阴影溢出 */
+    /* 修复：给 slider 右侧留一点 buffer，防止滑块阴影溢出 */
     padding-right: 5px; 
     
     :deep(.el-slider) { 

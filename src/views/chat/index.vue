@@ -76,10 +76,10 @@
         <DynamicScroller class="scroller" ref="scrollerRef" :items="activeMessages" key-field="id" :min-item-size="60">
           <template #default="{ item, active }">
             <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.content]">
-              <div class="message-row" :class="item.role">
+              <div class="message-row" :class="item.role === 'system' ? 'user' : item.role">
                 <div class="message-content-box">
                   <div class="avatar-col">
-                    <div class="avatar-circle none-select">{{ item.role === 'user' ? 'ME' : 'AI' }}</div>
+                    <div class="avatar-circle none-select">{{ (item.role === 'user' || item.role === 'system') ? 'ME' : 'AI' }}</div>
                   </div>
                   <div class="text-col">
                     <div v-if="item.role === 'assistant'" class="ai-content-wrapper">
@@ -889,7 +889,7 @@ watch(() => chatStore.activeId, () => { isScrollerReady.value = false; scrollToB
 /* 默认隐藏移动端遮罩 */
 .mobile-overlay { display: none; }
 
-/* ✨✨✨ 移动端适配 (核心修复区) ✨✨✨ */
+/* 移动端适配 (核心修复区) */
 @media (max-width: 768px) {
   
   /* 左侧边栏：抽屉模式 */
